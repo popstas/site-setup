@@ -1,0 +1,84 @@
+#!/bin/bash
+script_version=0.1
+
+source optparse
+
+add_arglim 0
+
+add_option domain -d "" "Domain name"
+add_option tmpl -f "/root/.autosite/domain_bind.conf" "bind conf template"
+add_option tmpl_named -m "/root/.autosite/domain_bind_named.conf" "bind named conf template"
+
+add_flag "test" -r False "dry-run, no real actions, only test"
+add_flag verbose -v False "Verbose output"
+
+add_info "Domain delegate for bind9 v$script_version"
+add_example "$0 --domain site.ru"
+
+parseargs $@
+
+tempfile=$(mktemp -t site-setup-domainXXXX)
+tempfile_named=$(mktemp -t site-setup-domainXXXX)
+
+function exit_command {
+	rm $tempfile
+	rm $tempfile_named
+}
+
+trap 'exit_command' 0 1 2 3 9 15
+
+if [ $(echo $DOMAIN | tr -cd . | wc -c) != 1 ]; then
+	echo "Only second-level domains are delegated"
+	exit 1
+fi
+
+if [ -z "$DOMAIN" ]; then
+	echo "domain required!"
+	usage
+	exit 1
+fi
+
+function is_verbose {
+	if [ "$VERBOSE" = True ]; then return 0; else return 1; fi
+}
+
+
+if [ $(grep -c "zone \"$DOMAIN\"" /etc/bind/named.conf.local) = "0" ]; then
+	zone_file="/var/lib/bind/${DOMAIN}.hosts"
+	timestamp=$(date +"%s")
+
+	cp $TMPL $tempfile
+	sed -i "s|{domain}|$DOMAIN|g" $tempfile
+	sed -i "s|{timestamp}|$timestamp|g" $tempfile
+
+	cp $TMPL_NAMED $tempfile_named
+	sed -i "s|{domain}|$DOMAIN|g" $tempfile_named
+	sed -i "s|{zone_file}|$zone_file|g" $tempfile_named
+
+	if [ "$VERBOSE" = True ]; then
+		echo "bind zone:"
+		cat $tempfile
+		echo ""
+		echo "add to named.conf.local:"
+		cat $tempfile_named
+	fi
+
+	if [ "$TEST" = True ]; then
+		echo "do nothing"
+	else
+		cp $tempfile $zone_file
+		chown root.bind $zone_file
+		chmod 644 $zone_file
+		cat $tempfile_named >> /etc/bind/named.conf.local
+		/etc/init.d/bind9 reload
+		if [ "$VERBOSE" = True ]; then
+			command="nslookup $DOMAIN ns1.tagilcity.ru"
+			echo $command
+			$command
+		fi
+	fi
+
+else
+	echo "zone $DOMAIN exists"
+	exit 1
+fi

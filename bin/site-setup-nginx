@@ -1,0 +1,68 @@
+#!/bin/bash
+# 28.08.2014
+# 
+script_version=1.0
+
+source optparse
+
+add_arglim 0
+
+add_option domain -d None "Site main domain"
+add_option domain_test -t None "Site test domain, if need"
+add_option tmpl -f "/root/.autosite/site_nginx.conf" "Nginx config template"
+add_option sitedir -s None "Site root directory"
+add_option nginxfile -g "" "Nginx target config file"
+
+add_flag "test" -r False "dry-run, no real actions, only test"
+
+add_info "Site setup: nginx v$script_version"
+add_example "$0 --domain nikaural.ru --domain_test nikaural.viasite.ru --sitedir /home/nikaural/www/nikaural.ru"
+
+parseargs $@
+
+if [ -z "$NGINXFILE" ]; then
+	NGINXFILE="/etc/nginx/sites-available/$DOMAIN"
+fi
+
+nginx_server_scope_include=""
+
+tempfile=$(mktemp -t site-setup-nginxXXXX)
+
+function exit_command {
+	rm $tempfile
+}
+
+trap 'exit_command' 0 1 2 3 9 15
+
+
+
+
+# блочим на айпи все, что на viasite
+if [ $(echo $SITEDIR | grep -c "/home/viasite/") = 1 ]; then
+	echo "Site blocked on office IP!"
+	nginx_server_scope_include="include /etc/nginx/whitelist-ips;"
+fi
+
+cp $TMPL $tempfile
+sed -i "s|{domain}|$DOMAIN|g" $tempfile
+sed -i "s|{sitedir}|$SITEDIR|g" $tempfile
+sed -i "s|{server_scope_include}|$nginx_server_scope_include|g" $tempfile
+if [ "$DOMAIN_TEST" != None ]; then
+	sed -i "s|{domain_test}| $DOMAIN_TEST|g" $tempfile
+else
+	sed -i "s|{domain_test}||g" $tempfile
+fi
+
+if [ $TEST = True ]; then
+	cat $tempfile
+else
+	# enable sites
+	echo cp $tempfile $NGINXFILE
+	cp $tempfile $NGINXFILE
+	ln -s $NGINXFILE /etc/nginx/sites-enabled > /dev/null 2>&1
+fi
+
+
+
+#site_setup_nginx --user $USER --domain $DOMAIN --domain_test $DOMAIN_TEST --sitedir $SITEDIR --nginxfile $nginxfile
+#
