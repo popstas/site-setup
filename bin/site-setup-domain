@@ -1,31 +1,35 @@
 #!/bin/bash
 script_version=0.1
 
-source optparse
+. /usr/share/site-setup/lib/optparse
 
 add_arglim 0
 
 add_option domain -d "" "Domain name"
-add_option tmpl -f "/root/.autosite/domain_bind.conf" "bind conf template"
-add_option tmpl_named -m "/root/.autosite/domain_bind_named.conf" "bind named conf template"
 
 add_flag "test" -r False "dry-run, no real actions, only test"
 add_flag verbose -v False "Verbose output"
 
-add_info "Domain delegate for bind9 v$script_version"
-add_example "$0 --domain site.ru"
+add_info "Domain delegate for bind9 $script_version"
+add_example "$0 --domain example.com"
 
 parseargs $@
+. /usr/share/site-setup/lib/init
 
-tempfile=$(mktemp -t site-setup-domainXXXX)
-tempfile_named=$(mktemp -t site-setup-domainXXXX)
+if [ "$TEST" = True ]; then VERBOSE=True; fi
+
+TMPL="$tmpldir/domain_bind.conf"
+TMPL_NAMED="$tmpldir/domain_bind_named.conf"
+
+tempfile=$(mktemp -t site-setup-domain-XXXX)
+tempfile_named=$(mktemp -t site-setup-domain-XXXX)
 
 function exit_command {
 	rm $tempfile
 	rm $tempfile_named
 }
 
-trap 'exit_command' 0 1 2 3 9 15
+trap 'exit_command' EXIT
 
 if [ $(echo $DOMAIN | tr -cd . | wc -c) != 1 ]; then
 	echo "Only second-level domains are delegated"
@@ -50,6 +54,10 @@ if [ $(grep -c "zone \"$DOMAIN\"" /etc/bind/named.conf.local) = "0" ]; then
 	cp $TMPL $tempfile
 	sed -i "s|{domain}|$DOMAIN|g" $tempfile
 	sed -i "s|{timestamp}|$timestamp|g" $tempfile
+	sed -i "s|{dns_ns1}|$dns_ns1|g" $tempfile
+	sed -i "s|{dns_ns2}|$dns_ns2|g" $tempfile
+	sed -i "s|{dns_a_ip}|$dns_a_ip|g" $tempfile
+	sed -i "s|{dns_admin}|$dns_admin|g" $tempfile
 
 	cp $TMPL_NAMED $tempfile_named
 	sed -i "s|{domain}|$DOMAIN|g" $tempfile_named

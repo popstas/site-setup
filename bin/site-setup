@@ -5,13 +5,20 @@
 # 21.07.2014
 # 11.12.2014 - added mailto2
 # 03.04.2015 - optional DB
-# v0.9.2
-# 
+# 25.08.2015 - drush make
+# 27.08.2015 - installer & config
+# v1.0.0
+#
 ################################################################
 
-script_version=0.9.2
+script_version=1.0.0
 
-source ../lib/optparse
+if [ ! command -v $SCRIPT >/dev/null 2>&1 ]; then
+	echo >&2 "site-setup requires server-scripts"
+	exit 1
+fi
+
+. /usr/share/site-setup/lib/optparse
 
 add_arglim 0
 add_option domain -d None "Site main domain"
@@ -35,10 +42,8 @@ add_info "Site install script v$script_version"
 add_example "$0 --user username --db db_name --domain example.com --engine /path/to/engine --db_pass SDLFksdfoi90wf9 --script drupal-setup --rewrite"
 
 parseargs $@
-
-# include only after parse args!
-source ../lib/functions
-source ../site-setup.conf
+# include init only after parse args!
+. /usr/share/site-setup/lib/init
 
 if [ $# = 0 ]; then
 	usage
@@ -66,50 +71,53 @@ color1='\e[1;37m'
 color2='\e[0;37m'
 NC='\e[0m' # No Color
 
-logfile=$(mktemp -t site-setup-logXXXX)
-settings_php=$(mktemp -t site-setup-settings_phpXXXX)
+logfile=$(mktemp -t site-setup-log-XXXX)
+settings_php=$(mktemp -t site-setup-settings_php-XXXX)
 
 function exit_command {
-	is_debug && echo rm "$logfile"
 	rm "$logfile"
-	is_debug && echo rm "$settings_php"
 	rm "$settings_php"
 	rm -rf "$skeldir"
 	bell
 	exit 1
 }
 
-trap 'exit_command' 0 1 2 3 9 15
+trap 'exit_command' EXIT
 
 # 1. system user
 function site_setup_user {
-	USER="$USER"
-	homedir="$homedir"
+	if [ ! -d "$homedir" ]; then
+		USER="$USER"
+		homedir="$homedir"
 
-	isnewuser=1
-	if [ -d "$homedir" ]; then
-		isnewuser=0
-		is_verbose && echo "directory $homedir exists, don't create user."
-	fi
+		isnewuser=1
+		if [ -d "$homedir" ]; then
+			isnewuser=0
+			is_verbose && echo "directory $homedir exists, don't create user."
+		fi
 
-	if [ $isnewuser = "1" ]; then
-		#user_pass=$(get_password 16)
-		#echo "please, enter password twice, generated password: ${color1}$user_pass${NC}"
+		if [ $isnewuser = "1" ]; then
+			#user_pass=$(get_password 16)
+			#echo "please, enter password twice, generated password: ${color1}$user_pass${NC}"
 
-		is_verbose && echo "useradd --create-home --shell=/bin/bash $USER"
-		#adduser $USER
-		useradd --create-home --shell=/bin/bash $USER
+			is_verbose && echo "useradd --create-home --shell=/bin/bash $USER"
+			#adduser $USER
+			useradd --create-home --shell=/bin/bash $USER
 
-		mkdir -p $homedir/log
-		mkdir -p $wwwdir
-		mkdir -p $homedir/.ssh
-		touch $homedir/.ssh/authorized_keys
+			mkdir -p $homedir/log
+			mkdir -p $wwwdir
+			mkdir -p $homedir/.cache
+			mkdir -p $homedir/.config
+			mkdir -p $homedir/.local
+			mkdir -p $homedir/.ssh
+			touch $homedir/.ssh/authorized_keys
 
-		# TODO: depedency
-		/root/bin/ssh-add-keys $USER
+			ssh-add-keys $USER
 
-		# TODO: depedency
-		user-setup $USER www > /dev/null
+			user-setup $USER www > /dev/null
+		fi
+	else
+		echo "$homedir exists, skip user creation"
 	fi
 }
 
@@ -157,11 +165,13 @@ function site_setup_engine {
 
 	mkdir -p $sitedir
 
+	# empty engine
 	if [ "$ENGINE" = "None" ]; then
 		# ничего не делаем
 		is_verbose && echo "empty engine"
 		cd $sitedir
 
+	# latest drupal
 	elif [ "$ENGINE" = "drupal" ]; then
 		is_verbose && echo "drush dl drupal --drupal-project-rename=$DOMAIN"
 		cd $wwwdir
@@ -169,18 +179,27 @@ function site_setup_engine {
 		drush dl drupal --drupal-project-rename=$DOMAIN
 		cd $sitedir
 
+	# drush makefile
+	elif [ $(echo "$ENGINE" | grep -c ".yml") = 1 ]; then
+		is_verbose && echo "drush7 make $ENGINE $DOMAIN"
+		cd $wwwdir
+		rmdir $sitedir
+		drush7 make $ENGINE $DOMAIN
+		cd $sitedir
+
+	# tar.gz archive
 	elif [ -f "$ENGINE" ]; then
 		is_verbose && echo "extract local archive"
 		cd $sitedir
 		tar -xf $ENGINE
 
+	# directory
 	elif [ -d "$ENGINE" ]; then
 		if [ "$NO_REINSTALL" = True ] && [ -f "$sitedir/sites/default/settings.php" ]; then
 			is_verbose && echo "backup old settings.php"
 			cat $sitedir/sites/default/settings.php > $settings_php
 		fi
 
-		# TODO: support snormal@localhost:/home/snormal/www/snormal.viasite.ru
 		is_verbose && echo rsync --one-file-system --recursive --delete "$ENGINE/" $sitedir
 		rsync --one-file-system --recursive --delete "$ENGINE/" $sitedir
 
@@ -199,8 +218,8 @@ function site_setup_engine {
 
 		cd $sitedir
 
+	# remote ssh path like user@example.com:/home/example/www/example.com
 	elif [ $(echo "$ENGINE" | grep "@") != "" ]; then
-		# TODO: support snormal@localhost:/home/snormal/www/snormal.viasite.ru
 		echo rsync --recursive --delete "$ENGINE/" $sitedir
 		rsync --recursive --delete "$ENGINE/" $sitedir
 
@@ -219,6 +238,7 @@ function site_setup_engine {
 
 		cd $sitedir
 
+	# url to tar.gz archive
 	else
 		is_verbose && echo "download engine"
 		wget -O /distrib/engine.tar.gz $ENGINE
@@ -227,12 +247,14 @@ function site_setup_engine {
 	fi
 
 	if [ "$ENGINE" = "drupal" ]; then
-		mkdir -p $homedir/drush-backups
+		mkdir -p "$homedir/drush-backups"
 	fi
 
-	chown -R $USER.$USER $sitedir
-	find $sitedir -type d -exec chmod 755 {} \;
-	find $sitedir -type f -exec chmod 644 {} \;
+	is_debug && touch "$sitedir/.excluded"
+
+	chown -R $USER.$USER "$sitedir"
+	find "$sitedir" -type d -exec chmod 755 {} \;
+	find "$sitedir" -type f -exec chmod 644 {} \;
 }
 
 
@@ -248,19 +270,20 @@ function site_setup_apache {
 	USER="$USER"
 	apachefile="$apachefile"
 
-	cp $tmpldir/site_apache.conf $tmpldir/site_apache.conf.tmp
-	sed -i "s|{domain}|$DOMAIN|g" $tmpldir/site_apache.conf.tmp
-	sed -i "s|{sitedir}|$sitedir|g" $tmpldir/site_apache.conf.tmp
-	sed -i "s|{uid}|$USER|g" $tmpldir/site_apache.conf.tmp
-	sed -i "s|{gid}|$USER|g" $tmpldir/site_apache.conf.tmp
+	tempfile=$(mktemp -t site-setup-apache-XXXX)
+	cp $tmpldir/site_apache.conf $tempfile
+	sed -i "s|{domain}|$DOMAIN|g" $tempfile
+	sed -i "s|{sitedir}|$sitedir|g" $tempfile
+	sed -i "s|{uid}|$USER|g" $tempfile
+	sed -i "s|{gid}|$USER|g" $tempfile
 	if [ "$DOMAIN_TEST" != None ]; then
-		sed -i "s|{domain_test}| $DOMAIN_TEST|g" $tmpldir/site_apache.conf.tmp
+		sed -i "s|{domain_test}| $DOMAIN_TEST|g" $tempfile
 	else
-		sed -i "s|{domain_test}||g" $tmpldir/site_apache.conf.tmp
+		sed -i "s|{domain_test}||g" $tempfile
 	fi
 
-	mv $tmpldir/site_apache.conf.tmp $apachefile
-	ln -s $apachefile /etc/apache2/sites-enabled > /dev/null 2>&1
+	mv "$tempfile" "$apachefile"
+	ln -s "$apachefile" "$apachefileen" > /dev/null 2>&1
 }
 
 
@@ -295,7 +318,7 @@ function site_setup_database {
 				is_verbose && echo "not backup old database"
 			else
 				is_verbose && echo backup and drop database $DB...
-				/root/bin/dbdump $DB > /dev/null 2>&1
+				dbdump $DB > /dev/null 2>&1
 			fi
 			is_verbose && echo "DROP DATABASE $DB;" | mysql
 			#echo "CREATE DATABASE $DB;" | mysql
@@ -347,17 +370,17 @@ function site_setup_script {
 			SCRIPT=/usr/local/bin/drupal-setup
 		fi
 
-		if [ ! -f "$SCRIPT" ]; then
+		if [ ! -f "$SCRIPT" ] && [ command -v $SCRIPT >/dev/null 2>&1 ]; then
 			is_verbose && echo "$SCRIPT not found! exit"
 			exit 1
 		fi
 
-		# файлы, доступные только под юзером viasite
+		# файлы, недоступные скрипту установки копируем в папку сайта
 		mkdir -p $skeldir/sites/all/modules
 		cp -r /usr/local/drupal/config/ $skeldir
 		cp -r /usr/local/drupal/patches/ $skeldir
 		cp -r /usr/local/drupal/libraries/ $skeldir/sites/all
-		cp -r /usr/local/drupal/features_viasite/ $skeldir/sites/all/modules
+		cp -r /usr/local/drupal/features/ $skeldir/sites/all/modules/features_viasite
 		cp -r /usr/local/drupal/modules/ $skeldir/sites/all/modules
 		cp -r /usr/local/drupal/themes/ $skeldir/sites/all
 
@@ -383,106 +406,91 @@ function site_setup_script {
 
 
 
-
-
-if [ ! -d "$homedir" ]; then
+main() {
 	echo -e "${color1}# 1. system user${NC}"
 	site_setup_user
-fi
 
-# тут юзер точно создан
-chown $USER:$USER $logfile
-chown $USER:$USER $settings_php
+	# тут юзер точно создан
+	chown $USER:$USER $logfile
+	chown $USER:$USER $settings_php
 
-echo -e "\n${color1}# 2. extract engine files${NC}"
-site_setup_engine
+	echo -e "\n${color1}# 2. extract engine files${NC}"
+	site_setup_engine
 
-if [ "$NO_REINSTALL" != True ]; then
-	echo -e "\n${color1}# 3. apache config${NC}"
-	site_setup_apache
-fi
+	if [ "$NO_REINSTALL" != True ]; then
+		echo -e "\n${color1}# 3. apache config${NC}"
+		site_setup_apache
 
-if [ "$NO_REINSTALL" != True ]; then
-	echo -e "\n${color1}# 4. nginx config${NC}"
-	/root/bin/site-setup-nginx --domain "$DOMAIN" --domain_test "$DOMAIN_TEST" --sitedir "$sitedir" --nginxfile "$nginxfile"
-fi
+		echo -e "\n${color1}# 4. nginx config${NC}"
+		site-setup-nginx --domain "$DOMAIN" --domain_test "$DOMAIN_TEST" --sitedir "$sitedir"
 
-if [ "$NO_REINSTALL" != True ]; then
-	reload-web > /dev/null 2>&1
-fi
+		reload-web > /dev/null 2>&1
 
-if [ "$NO_REINSTALL" != True ]; then
-	echo -e "\n${color1}# 5. database${NC}"
-	site_setup_database
-fi
+		echo -e "\n${color1}# 5. database${NC}"
+		site_setup_database
 
-if [ "$NO_REINSTALL" != True ]; then
-	echo -e "\n${color1}# 6. domain${NC}"
-	/root/bin/site-setup-domain --domain $DOMAIN
-fi
+		echo -e "\n${color1}# 6. domain${NC}"
+		site-setup-domain --domain $DOMAIN
+	fi
 
-echo -e "\n${color1}# 7. setup script${NC}"
-site_setup_script
+	echo -e "\n${color1}# 7. setup script${NC}"
+	site_setup_script
 
 
-
-
-
-
-
-
-
-
-
-
-
-if [ "$NO_REINSTALL" != True ]; then
-	if [ "$VERBOSE" = True ]; then
-		echo ""
-		echo "##################################################"
-		echo ""
-		echo "for uninstall:"
-		echo "rm $nginxfile"
-		echo "rm $nginxfileen"
-		echo "rm $apachefile"
-		echo "rm $apachefileen"
-		echo "reload-web"
-		echo "rm -rf $sitedir"
-		if [ -n "$DB" ]; then
-			echo "mysql --execute=\"DROP DATABASE $DB\""
+	if [ "$NO_REINSTALL" != True ]; then
+		if [ "$VERBOSE" = True ]; then
+			echo ""
+			echo "##################################################"
+			echo ""
+			echo "for uninstall:"
+			echo "rm $nginxfile"
+			echo "rm $nginxfileen"
+			echo "rm $apachefile"
+			echo "rm $apachefileen"
+			echo "reload-web"
+			echo "rm -rf $sitedir"
+			if [ -n "$DB" ]; then
+				echo "mysql --execute=\"DROP DATABASE $DB\""
+			fi
+			if [ $(ls $wwwdir | wc -l) = "1" ]; then
+				echo deluser $USER
+				echo rm -rf $homedir
+			fi
+			echo ""
+			echo "##################################################"
+			echo ""
 		fi
-		if [ $(ls $wwwdir | wc -l) = "1" ]; then
-			echo deluser $USER
-			echo rm -rf $homedir
+
+		#echo created user $USER with password $user_pass
+		echo "domain: $DOMAIN" >> $logfile
+		echo "site root: $sitedir" >> $logfile
+		echo "mysql database: $DB" >> $logfile
+		echo "mysql password: $DB_PASS" >> $logfile
+
+		if [ "$SCRIPT" != "drupal" ]; then
+			echo "for cron exec: cd $sitedir && drs cron-add"
+		fi
+
+		if [ "$DEBUG" != True ]; then
+			body="[site-setup] $DOMAIN passwords"
+			if [ -n "$mailto" ]; then
+				mail -s "$body" $mailto < $logfile
+				echo email sent to $mailto
+			fi
+
+			if [ -n "$mailto2" ]; then
+				mail -s "$body" $mailto2 < $logfile
+				echo email sent to $mailto2
+			fi
 		fi
 		echo ""
-		echo "##################################################"
-		echo ""
+
+		cat $logfile
 	fi
 
-	#echo created user $USER with password $user_pass
-	echo "domain: $DOMAIN" >> $logfile
-	echo "site root: $sitedir" >> $logfile
-	echo "mysql database: $DB" >> $logfile
-	echo "mysql password: $DB_PASS" >> $logfile
+	end_time=$(date +%s)
+	runtime=$((end_time-start_time))
+	echo finished at $runtime seconds
+}
 
-	if [ "$SCRIPT" != "drupal" ]; then
-		echo "for cron exec: cd $sitedir && drs cron-add"
-	fi
-
-	if [ "$DEBUG" != True ]; then
-		body="[site-setup] $DOMAIN passwords"
-		mail -s "$body" $mailto < $logfile
-		echo email sent to $mailto
-
-		mail -s "$body" $mailto2 < $logfile
-		echo email sent to $mailto2
-	fi
-	echo ""
-
-	cat $logfile
-fi
-
-end_time=$(date +%s)
-runtime=$((end_time-start_time))
-echo finished at $runtime seconds
+main "$@"

@@ -1,5 +1,13 @@
-mailto="popstas@gmail.com"
-tmpldir="/root/.autosite"
+mailto="admin@example.com"
+mailto2="admin2.example.com"
+tmpldir="/usr/share/site-setup/templates"
+
+dns_ns1="ns1.example.com"
+dns_ns2="ns2.example.com"
+dns_a_ip="1.2.3.4"
+dns_admin="admin.example.com"
+
+test_directory="/home/test"
 
 homedir="/home/$USER"
 wwwdir="$homedir/www"

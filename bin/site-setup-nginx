@@ -1,44 +1,45 @@
 #!/bin/bash
 # 28.08.2014
-# 
+# 28.08.2015 - some rewrites
 script_version=1.0
 
-source optparse
+. /usr/share/site-setup/lib/optparse
 
 add_arglim 0
 
 add_option domain -d None "Site main domain"
 add_option domain_test -t None "Site test domain, if need"
-add_option tmpl -f "/root/.autosite/site_nginx.conf" "Nginx config template"
 add_option sitedir -s None "Site root directory"
-add_option nginxfile -g "" "Nginx target config file"
 
 add_flag "test" -r False "dry-run, no real actions, only test"
 
-add_info "Site setup: nginx v$script_version"
-add_example "$0 --domain nikaural.ru --domain_test nikaural.viasite.ru --sitedir /home/nikaural/www/nikaural.ru"
-
+add_info "Site setup: nginx $script_version"
+add_example "$0 --domain example.com --domain_test test.example.com --sitedir /home/example/www/example.com"
 parseargs $@
+. /usr/share/site-setup/lib/init
 
-if [ -z "$NGINXFILE" ]; then
-	NGINXFILE="/etc/nginx/sites-available/$DOMAIN"
+TMPL="$tmpldir/site_nginx.conf"
+
+if [ -z "$nginxfile" ] || [ -z "$nginxfileen" ]; then
+	echo "nginxfile or nginxfileen not defined"
+	exit 1
 fi
 
 nginx_server_scope_include=""
 
-tempfile=$(mktemp -t site-setup-nginxXXXX)
+tempfile=$(mktemp -t site-setup-nginx-XXXX)
 
 function exit_command {
 	rm $tempfile
 }
 
-trap 'exit_command' 0 1 2 3 9 15
+trap 'exit_command' EXIT
 
 
 
 
-# блочим на айпи все, что на viasite
-if [ $(echo $SITEDIR | grep -c "/home/viasite/") = 1 ]; then
+# блочим на айпи все, что ставится в тестовую папку
+if [ $(echo $SITEDIR | grep -c "$test_directory") = 1 ]; then
 	echo "Site blocked on office IP!"
 	nginx_server_scope_include="include /etc/nginx/whitelist-ips;"
 fi
@@ -57,12 +58,7 @@ if [ $TEST = True ]; then
 	cat $tempfile
 else
 	# enable sites
-	echo cp $tempfile $NGINXFILE
-	cp $tempfile $NGINXFILE
-	ln -s $NGINXFILE /etc/nginx/sites-enabled > /dev/null 2>&1
+	echo cp $tempfile $nginxfile
+	cp $tempfile $nginxfile
+	ln -s "$nginxfile" "$nginxfileen" > /dev/null 2>&1
 fi
-
-
-
-#site_setup_nginx --user $USER --domain $DOMAIN --domain_test $DOMAIN_TEST --sitedir $SITEDIR --nginxfile $nginxfile
-#
