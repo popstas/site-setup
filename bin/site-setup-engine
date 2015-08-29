@@ -46,6 +46,11 @@ site_setup_engine() {
 		exit 1
 	fi
 
+	if [ $(getent passwd "$USER" | wc -l) = 0 ]; then
+		echo "User $USER not exists, aborting."
+		exit 1
+	fi
+
 	# backup exists site to _old directory
 	if [ -d "$sitedir" ]; then
 		if [ "$REWRITE" = True ]; then

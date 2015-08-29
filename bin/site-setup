@@ -113,7 +113,7 @@ site_setup_user() {
 	USER="$USER"
 	homedir="$homedir"
 
-	if [ $(getent passwd "$USER" | wc -l) = 0 ]; then
+	if [ $(getent passwd "$USER" | wc -l) = 0 ] || [ ! -d "$homedir" ]; then
 		is_verbose && echo "useradd --create-home --shell=/bin/bash $USER"
 		useradd --create-home --shell=/bin/bash "$USER"
 
