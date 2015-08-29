@@ -1,6 +1,7 @@
 #!/bin/bash
 # 29.08.2015
 
+set -e
 . /usr/share/site-setup/lib/optparse
 
 add_arglim 0

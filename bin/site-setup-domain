@@ -1,6 +1,7 @@
 #!/bin/bash
 script_version=0.1
 
+set -e
 . /usr/share/site-setup/lib/optparse
 
 add_arglim 0
@@ -33,7 +34,7 @@ trap 'exit_command' EXIT
 
 if [ $(echo $DOMAIN | tr -cd . | wc -c) != 1 ]; then
 	echo "Only second-level domains are delegated"
-	exit 1
+	exit 0
 fi
 
 if [ -z "$DOMAIN" ]; then
@@ -88,5 +89,5 @@ if [ $(grep -c "zone \"$DOMAIN\"" /etc/bind/named.conf.local) = "0" ]; then
 
 else
 	echo "zone $DOMAIN exists"
-	exit 1
+	exit 0
 fi

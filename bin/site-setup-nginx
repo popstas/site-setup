@@ -3,6 +3,7 @@
 # 28.08.2015 - some rewrites
 script_version=1.0
 
+set -e
 . /usr/share/site-setup/lib/optparse
 
 add_arglim 0
