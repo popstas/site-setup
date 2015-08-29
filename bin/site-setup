@@ -13,6 +13,7 @@
 ################################################################
 
 script_version=1.0.1
+set -e
 
 if [ ! command -v "user-setup" >/dev/null 2>&1 ]; then
 	echo >&2 "site-setup requires server-scripts"
@@ -110,38 +111,26 @@ trap 'exit_command' EXIT
 
 # 1. system user
 function site_setup_user {
-	if [ ! -d "$homedir" ]; then
-		USER="$USER"
-		homedir="$homedir"
+	USER="$USER"
+	homedir="$homedir"
 
-		isnewuser=1
-		if [ -d "$homedir" ]; then
-			isnewuser=0
-			is_verbose && echo "directory $homedir exists, don't create user."
-		fi
+	if [ $(getent passwd "$USER" | wc -l) = 0 ]; then
+		is_verbose && echo "useradd --create-home --shell=/bin/bash $USER"
+		useradd --create-home --shell=/bin/bash "$USER"
 
-		if [ "$isnewuser" = "1" ]; then
-			#user_pass=$(get_password 16)
-			#echo "please, enter password twice, generated password: ${color1}$user_pass${NC}"
+		mkdir -p "$homedir/log"
+		mkdir -p "$wwwdir"
+		mkdir -p "$homedir/.cache"
+		mkdir -p "$homedir/.config"
+		mkdir -p "$homedir/.local"
+		mkdir -p "$homedir/.ssh"
+		touch "$homedir/.ssh/authorized_keys"
 
-			is_verbose && echo "useradd --create-home --shell=/bin/bash $USER"
-			#adduser $USER
-			useradd --create-home --shell=/bin/bash "$USER"
+		ssh-add-keys "$USER"
 
-			mkdir -p "$homedir/log"
-			mkdir -p "$wwwdir"
-			mkdir -p "$homedir/.cache"
-			mkdir -p "$homedir/.config"
-			mkdir -p "$homedir/.local"
-			mkdir -p "$homedir/.ssh"
-			touch "$homedir/.ssh/authorized_keys"
-
-			ssh-add-keys "$USER"
-
-			user-setup "$USER" www > /dev/null
-		fi
+		user-setup "$USER" www > /dev/null
 	else
-		echo "$homedir exists, skip user creation"
+		echo "$USER exists, skip user creation"
 	fi
 }
 
@@ -319,10 +308,6 @@ main() {
 	if [ -n "$DB_SOURCE" ]; then command_args="$command_args --db_source $DB_SOURCE"; fi
 	if [ -n "$DB_PASS" ]; then command_args="$command_args --db_pass $DB_PASS"; fi
 	site-setup-engine --user "$USER" --engine "$ENGINE" --domain "$DOMAIN" $command_args
-	if [ $? -ne 0 ]; then
-		echo "setup engine failed"
-		exit 1
-	fi
 
 	echo -e "\n${color1}# 3. apache config${NC}"
 	site_setup_apache
