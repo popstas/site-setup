@@ -28,7 +28,7 @@ add_option user -u "" "Site user"
 add_option db -b "" "DB name"
 add_option db_source -j "" "DB name"
 add_option db_pass -p "" "DB password"
-add_option engine -i None "Engine source (tgz url, tgz file or directory), default: empty"
+add_option engine -i "" "Engine source (tgz url, tgz file or directory), default: empty"
 add_option script -s "" "Setup script"
 #add_option config -c "" "Configuration file"
 add_option drupal_profile -r "minimal" "Drupal installation profile, default: minimal"
@@ -49,7 +49,7 @@ if [ $# = 0 ]; then
 	usage
 fi
 
-if [ -z "$DB" ] && [ "$ENGINE" != "None" ]; then
+if [ -z "$DB" ] && [ "$ENGINE" != "" ]; then
 	echo "db not set"
 	usage
 fi

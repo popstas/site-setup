@@ -79,6 +79,7 @@ site-setup-domain --domain example.com
 
 `--engine` - можно указать:
 - drupal (установка последней версии через drush)
+- project:commerce_kickstart (дистриба с drupal.org)
 - архив tgz, tar.gz на локальном или удаленном сервере
 - путь к корню существующего локального сайта
 - путь к локальному .yml файлу, тогда будет запущен drush make - Всё о drush, drush make

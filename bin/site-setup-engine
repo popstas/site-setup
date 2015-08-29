@@ -1,9 +1,6 @@
 #!/bin/bash
 # 29.08.2015
 
-set -e
-#set -x
-
 . /usr/share/site-setup/lib/optparse
 
 add_arglim 0
@@ -22,7 +19,7 @@ add_flag debug -m False "Debug"
 parseargs $@
 . /usr/share/site-setup/lib/init
 
-set -u
+set -eu
 
 function site_setup_engine {
 	USER="$USER"
@@ -46,29 +43,27 @@ function site_setup_engine {
 		exit 1
 	fi
 
-	if [ "$REWRITE" = True ]; then
-		if [ -d "$sitedir_old" ]; then
-			is_verbose && echo rm -rf "$sitedir_old"
-			rm -rf "$sitedir_old"
-		fi
+	# backup exists site to _old directory
+	if [ -d "$sitedir" ]; then
+		if [ "$REWRITE" = True ]; then
+			if [ -d "$sitedir_old" ]; then
+				is_verbose && echo rm -rf "$sitedir_old"
+				rm -rf "$sitedir_old"
+			fi
 
-		if [ -d "$sitedir" ]; then
 			if [ "$DEBUG" = True ]; then
 				echo rm -rf "$sitedir"
 				rm -rf "$sitedir"
-				#is_verbose && echo "old site not deleted"
 			else
 				is_verbose && echo "move old site to $sitedir_old"
 				is_verbose && echo mv "$sitedir" "$sitedir_old"
 				mv "$sitedir" "$sitedir_old"
 			fi
+		else
+			echo "Directory $sitedir exists, do nothing."
+			echo "If you need to rewrite or update site, use --rewrite option"
+			exit 1
 		fi
-	fi
-
-	if [ "$REWRITE" != True ] && [ -d "$sitedir" ]; then
-		echo "Directory $sitedir exists, do nothing."
-		echo "If you need to rewrite or update site, use --rewrite option"
-		exit 1
 	fi
 
 	mkdir -p "$sitedir"
@@ -85,6 +80,15 @@ function site_setup_engine {
 		cd "$wwwdir"
 		rmdir "$sitedir"
 		drush dl drupal --drupal-project-rename="$DOMAIN"
+		cd "$sitedir"
+
+	# project from drupal.org
+	elif [ $(echo "$ENGINE" | grep -c "project:") = 1 ]; then
+		project=$(echo "$ENGINE" | sed 's/project://g')
+		is_verbose && echo "drush dl $project --drupal-project-rename=$DOMAIN"
+		cd "$wwwdir"
+		rmdir "$sitedir"
+		drush dl "$project" --drupal-project-rename="$DOMAIN"
 		cd "$sitedir"
 
 	# drush makefile
