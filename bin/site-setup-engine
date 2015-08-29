@@ -107,7 +107,7 @@ function site_setup_engine {
 
 	# directory
 	# remote ssh path like user@example.com:/home/example/www/example.com
-	elif [ -d "$ENGINE" ] || [ $(echo "$ENGINE" | grep "@") != "" ]; then
+	elif [ -d "$ENGINE" ] || [ $(echo "$ENGINE" | grep -c "@") = 1 ]; then
 		is_verbose && echo rsync --recursive --delete "$ENGINE/" "$sitedir"
 		rsync --recursive --delete "$ENGINE/" "$sitedir"
 
@@ -122,11 +122,26 @@ function site_setup_engine {
 		cd "$sitedir"
 
 	# url to tar.gz archive
-	else
+	elif [ $(echo "$ENGINE" | grep -c ".tar.gz") = 1 ]; then
 		is_verbose && echo "download engine"
 		wget -O /distrib/engine.tar.gz "$ENGINE"
 		cd "$sitedir"
 		tar -xf /distrib/engine.tar.gz
+	else
+		echo "unknown engine '$ENGINE'"
+		exit 1
+	fi
+
+
+
+	# if archive contains one directory, extract files from subdir to sitedir
+	if [ "$(find . -mindepth 1 -maxdepth 1 | wc -l)" = 1 ]; then
+		subdir=$(find "$sitedir" -mindepth 1 -maxdepth 1 -type d)
+		if [ -d "$subdir" ]; then
+			is_verbose && echo "extract files from subdirectory $subdir"
+			find "$subdir" -mindepth 1 -maxdepth 1 -exec mv {} "$sitedir" \;
+			rmdir "$subdir"
+		fi
 	fi
 
 	if [ "$ENGINE" = "drupal" ]; then
