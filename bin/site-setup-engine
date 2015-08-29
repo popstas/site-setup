@@ -22,7 +22,7 @@ parseargs $@
 
 set -eu
 
-function site_setup_engine {
+site_setup_engine() {
 	USER="$USER"
 	DOMAIN="$DOMAIN"
 	REWRITE="$REWRITE"
@@ -164,4 +164,4 @@ main() {
 	site_setup_engine
 }
 
-main "$@"
+main

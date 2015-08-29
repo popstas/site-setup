@@ -99,7 +99,7 @@ NC='\e[0m' # No Color
 logfile=$(mktemp -t site-setup-log-XXXX)
 settings_php=$(mktemp -t site-setup-settings_php-XXXX)
 
-function exit_command {
+exit_command() {
 	rm "$logfile"
 	rm "$settings_php"
 	rm -rf "$skeldir"
@@ -110,7 +110,7 @@ function exit_command {
 trap 'exit_command' EXIT
 
 # 1. system user
-function site_setup_user {
+site_setup_user() {
 	USER="$USER"
 	homedir="$homedir"
 
@@ -147,7 +147,7 @@ function site_setup_user {
 
 
 # 3. apache config
-function site_setup_apache {
+site_setup_apache() {
 	tmpldir="$tmpldir"
 	sitedir="$sitedir"
 	DOMAIN="$DOMAIN"
@@ -183,7 +183,7 @@ function site_setup_apache {
 
 
 # 5. database
-function site_setup_database {
+site_setup_database() {
 	USER="$USER"
 	DB="$DB"
 	DB_PASS="$DB_PASS"
@@ -237,7 +237,7 @@ function site_setup_database {
 
 
 # 7. setup script
-function site_setup_script {
+site_setup_script() {
 	SCRIPT="$SCRIPT"
 	DOMAIN="$DOMAIN"
 	sitedir="$sitedir"

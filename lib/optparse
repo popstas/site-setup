@@ -52,16 +52,16 @@
 
 #################################################################################3
 
-function add_arglim {
+add_arglim() {
 ARG_LIM=$1; } 
 
 
-function add_info {
+add_info() {
 if [ $# -ge 2 ]; then echo 'ERROR: add_info acts on a single text string'; exit 1; fi
 HELP_INFO=$1; }
 
 
-function add_example {
+add_example() {
 if [ $# -ge 2 ]; then echo 'ERROR: add_example acts on a single text string'; exit 1; fi
 HELP_EXAMPLE=$1
  }
@@ -73,7 +73,7 @@ HELP_EXAMPLE=$1
 # add flag is NAME, short, default 
 
 
-function add_flag {
+add_flag() {
 if [ $# == 0 ]; then echo 'ERROR: add_flag requires at least one argument'; exit 1; fi
 if [ $# == 1 ]; then 
 	local SHRT='None' 
@@ -142,7 +142,7 @@ fi
 # add option is NAME, short, default  
 	
 
-function add_option { 
+add_option() {
 if [ $# == 0 ]; then echo 'ERROR: add_option requires at least one argument'; exit 1; fi
 if [ $# == 1 ]; then 
 	local SHRT='None' 
@@ -197,7 +197,7 @@ fi
 
 
 
-function usage {
+usage() {
 	j=0
 	echo '' 
 	if [ -z != $(echo $HELP_INFO | sed 's/\(.\).*/\1/g') ]; then echo $HELP_INFO ; echo '';fi 
@@ -279,7 +279,7 @@ hget() {
 
 
 
-function parseargs {
+parseargs() {
 	Argc=0
 	if [ $# == 0 ]; then 
 		echo 'Empty args'

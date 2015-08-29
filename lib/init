@@ -2,17 +2,17 @@
 
 . /etc/site-setup.conf
 
-get_password () {
+get_password() {
 	len=12
 	if [ $# = "1" ]; then len="$1"; fi
 	</dev/urandom tr -dc 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789_' | head -c$len; echo ""
 }
 
-function is_verbose {
+is_verbose() {
 	if [ "$VERBOSE" = True ]; then return 0; else return 1; fi
 }
 
-function is_debug {
+is_debug() {
 	if [ "$DEBUG" = True ]; then return 0; else return 1; fi
 }
 

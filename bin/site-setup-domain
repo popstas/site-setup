@@ -17,6 +17,20 @@ add_example "$0 --domain example.com"
 parseargs $@
 . /usr/share/site-setup/lib/init
 
+# variables from optparse
+DOMAIN="$DOMAIN"
+TEST="$TEST"
+VERBOSE="$VERBOSE"
+
+# variables from config
+tmpldir="$tmpldir"
+dns_ns1="$dns_ns1"
+dns_ns2="$dns_ns2"
+dns_a_ip="$dns_a_ip"
+dns_admin="$dns_admin"
+
+set -u
+
 if [ "$TEST" = True ]; then VERBOSE=True; fi
 
 TMPL="$tmpldir/domain_bind.conf"
@@ -25,14 +39,14 @@ TMPL_NAMED="$tmpldir/domain_bind_named.conf"
 tempfile=$(mktemp -t site-setup-domain-XXXX)
 tempfile_named=$(mktemp -t site-setup-domain-XXXX)
 
-function exit_command {
-	rm $tempfile
-	rm $tempfile_named
+exit_command() {
+	rm "$tempfile"
+	rm "$tempfile_named"
 }
 
 trap 'exit_command' EXIT
 
-if [ $(echo $DOMAIN | tr -cd . | wc -c) != 1 ]; then
+if [ $(echo "$DOMAIN" | tr -cd . | wc -c) != 1 ]; then
 	echo "Only second-level domains are delegated"
 	exit 0
 fi
@@ -43,46 +57,42 @@ if [ -z "$DOMAIN" ]; then
 	exit 1
 fi
 
-function is_verbose {
-	if [ "$VERBOSE" = True ]; then return 0; else return 1; fi
-}
-
 
 if [ $(grep -c "zone \"$DOMAIN\"" /etc/bind/named.conf.local) = "0" ]; then
 	zone_file="/var/lib/bind/${DOMAIN}.hosts"
 	timestamp=$(date +"%s")
 
-	cp $TMPL $tempfile
-	sed -i "s|{domain}|$DOMAIN|g" $tempfile
-	sed -i "s|{timestamp}|$timestamp|g" $tempfile
-	sed -i "s|{dns_ns1}|$dns_ns1|g" $tempfile
-	sed -i "s|{dns_ns2}|$dns_ns2|g" $tempfile
-	sed -i "s|{dns_a_ip}|$dns_a_ip|g" $tempfile
-	sed -i "s|{dns_admin}|$dns_admin|g" $tempfile
+	cp "$TMPL" "$tempfile"
+	sed -i "s|{domain}|$DOMAIN|g" "$tempfile"
+	sed -i "s|{timestamp}|$timestamp|g" "$tempfile"
+	sed -i "s|{dns_ns1}|$dns_ns1|g" "$tempfile"
+	sed -i "s|{dns_ns2}|$dns_ns2|g" "$tempfile"
+	sed -i "s|{dns_a_ip}|$dns_a_ip|g" "$tempfile"
+	sed -i "s|{dns_admin}|$dns_admin|g" "$tempfile"
 
-	cp $TMPL_NAMED $tempfile_named
-	sed -i "s|{domain}|$DOMAIN|g" $tempfile_named
-	sed -i "s|{zone_file}|$zone_file|g" $tempfile_named
+	cp "$TMPL_NAMED" "$tempfile_named"
+	sed -i "s|{domain}|$DOMAIN|g" "$tempfile_named"
+	sed -i "s|{zone_file}|$zone_file|g" "$tempfile_named"
 
 	if [ "$VERBOSE" = True ]; then
 		echo "bind zone:"
-		cat $tempfile
+		cat "$tempfile"
 		echo ""
 		echo "add to named.conf.local:"
-		cat $tempfile_named
+		cat "$tempfile_named"
 	fi
 
 	if [ "$TEST" = True ]; then
 		echo "do nothing"
 	else
-		cp $tempfile $zone_file
-		chown root.bind $zone_file
-		chmod 644 $zone_file
-		cat $tempfile_named >> /etc/bind/named.conf.local
-		/etc/init.d/bind9 reload
+		cp "$tempfile" "$zone_file"
+		chown root.bind "$zone_file"
+		chmod 644 "$zone_file"
+		cat "$tempfile_named" >> /etc/bind/named.conf.local
+		service bind9 reload
 		if [ "$VERBOSE" = True ]; then
 			command="nslookup $DOMAIN ns1.tagilcity.ru"
-			echo $command
+			echo "$command"
 			$command
 		fi
 	fi

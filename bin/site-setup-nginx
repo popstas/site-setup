@@ -19,6 +19,20 @@ add_example "$0 --domain example.com --domain_test test.example.com --sitedir /h
 parseargs $@
 . /usr/share/site-setup/lib/init
 
+# variables from optparse
+DOMAIN="$DOMAIN"
+DOMAIN_TEST="$DOMAIN_TEST"
+SITEDIR="$SITEDIR"
+TEST="$TEST"
+
+# variables from config
+tmpldir="$tmpldir"
+nginxfile="$nginxfile"
+nginxfileen="$nginxfileen"
+test_directory="$test_directory"
+
+set -u
+
 TMPL="$tmpldir/site_nginx.conf"
 
 if [ -z "$nginxfile" ] || [ -z "$nginxfileen" ]; then
@@ -30,8 +44,8 @@ nginx_server_scope_include=""
 
 tempfile=$(mktemp -t site-setup-nginx-XXXX)
 
-function exit_command {
-	rm $tempfile
+exit_command() {
+	rm "$tempfile"
 }
 
 trap 'exit_command' EXIT
@@ -40,26 +54,26 @@ trap 'exit_command' EXIT
 
 
 # блочим на айпи все, что ставится в тестовую папку
-if [ $(echo $SITEDIR | grep -c "$test_directory") = 1 ]; then
+if [ $(echo "$SITEDIR" | grep -c "$test_directory") = 1 ]; then
 	echo "Site blocked on office IP!"
 	nginx_server_scope_include="include /etc/nginx/whitelist-ips;"
 fi
 
-cp $TMPL $tempfile
-sed -i "s|{domain}|$DOMAIN|g" $tempfile
-sed -i "s|{sitedir}|$SITEDIR|g" $tempfile
-sed -i "s|{server_scope_include}|$nginx_server_scope_include|g" $tempfile
+cp "$TMPL" "$tempfile"
+sed -i "s|{domain}|$DOMAIN|g" "$tempfile"
+sed -i "s|{sitedir}|$SITEDIR|g" "$tempfile"
+sed -i "s|{server_scope_include}|$nginx_server_scope_include|g" "$tempfile"
 if [ "$DOMAIN_TEST" != None ]; then
-	sed -i "s|{domain_test}| $DOMAIN_TEST|g" $tempfile
+	sed -i "s|{domain_test}| $DOMAIN_TEST|g" "$tempfile"
 else
-	sed -i "s|{domain_test}||g" $tempfile
+	sed -i "s|{domain_test}||g" "$tempfile"
 fi
 
-if [ $TEST = True ]; then
-	cat $tempfile
+if [ "$TEST" = True ]; then
+	cat "$tempfile"
 else
 	# enable sites
-	echo cp $tempfile $nginxfile
-	cp $tempfile $nginxfile
+	echo cp "$tempfile" "$nginxfile"
+	cp "$tempfile" "$nginxfile"
 	ln -s "$nginxfile" "$nginxfileen" > /dev/null 2>&1
 fi
