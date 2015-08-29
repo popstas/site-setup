@@ -378,13 +378,11 @@ main() {
 	if [ "$DEBUG" != True ]; then
 		body="[site-setup] $DOMAIN passwords"
 		if [ -n "$mailto" ]; then
-			mail -s "$body" "$mailto" < "$logfile"
-			echo "email sent to $mailto"
+			mail -s "$body" "$mailto" < "$logfile" && echo "email sent to $mailto"
 		fi
 
 		if [ -n "$mailto2" ]; then
-			mail -s "$body" "$mailto2" < "$logfile"
-			echo "email sent to $mailto2"
+			mail -s "$body" "$mailto2" < "$logfile" && echo "email sent to $mailto2"
 		fi
 	fi
 	echo ""
