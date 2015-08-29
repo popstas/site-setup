@@ -3,7 +3,6 @@ Scripts for setup drupal site on virtual hosting.
 
 ## Requirements
 - [popstas/server-scripts](https://github.com/popstas/server-scripts)
-- [popstas/drall](https://github.com/popstas/drall)
 
 # Installation
 ```
