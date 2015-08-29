@@ -1,5 +1,22 @@
 #!/usr/bin/env bats
 
+@test "site-setup-engine: not existing user" {
+	deluser example > /dev/null 2>&1 || true
+
+	run site-setup-engine --verbose --debug --rewrite --user example --domain example.com --engine foo
+	echo >&2 "$output"
+	[ $status -eq 1 ]
+	[ $(echo "$output" | grep -c "User example not exists") = 1 ]
+
+	run site-setup --user example --domain example.com --rewrite
+}
+
+@test "site-setup-engine: unknown engine" {
+	run site-setup-engine --verbose --debug --rewrite --user example --domain example.com --engine foo
+	echo >&2 "$output"
+	[ $status -eq 1 ]
+}
+
 @test "site-setup-engine: drupal project" {
 	run site-setup-engine --verbose --debug --rewrite --user example --domain example.com --engine project:commerce_kickstart
 	echo >&2 "$output"
@@ -13,12 +30,6 @@
 	echo >&2 "$output"
 	[ $status -eq 0 ]
 	[ -f /home/example/www/example.com/index.html ]
-}
-
-@test "site-setup-engine: unknown" {
-	run site-setup-engine --verbose --debug --rewrite --user example --domain example.com --engine foo
-	echo >&2 "$output"
-	[ $status -eq 1 ]
 }
 
 @test "site-setup-engine: makefile" {

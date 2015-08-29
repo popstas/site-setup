@@ -7,6 +7,14 @@
 	[ -d /home/example/www/example.com/profiles/minimal ]
 }
 
+@test "site-setup: without rewrite" {
+	run site-setup --verbose --debug --user example --domain example.com
+	echo >&2 "$output"
+	[ $status -eq 1 ]
+	[ $(echo "$output" | grep -c "Directory.*exists") = 1 ]
+	[ -d /home/example/www/example.com/profiles/minimal ]
+}
+
 @test "site-setup: empty engine" {
 	run site-setup --verbose --debug --rewrite --user example --domain example.com
 	echo >&2 "$output"

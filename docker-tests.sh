@@ -3,6 +3,7 @@
 
 set -e
 
+service bind9 start > /dev/null
 service mysql start > /dev/null
 
 # install server-scripts
