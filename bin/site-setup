@@ -14,7 +14,7 @@
 
 script_version=1.0.1
 
-if [ ! command -v $SCRIPT >/dev/null 2>&1 ]; then
+if [ ! command -v "user-setup" >/dev/null 2>&1 ]; then
 	echo >&2 "site-setup requires server-scripts"
 	exit 1
 fi
@@ -44,6 +44,35 @@ add_example "$0 --user username --db db_name --domain example.com --engine /path
 parseargs $@
 # include init only after parse args!
 . /usr/share/site-setup/lib/init
+
+# variables used from optparse
+DOMAIN="$DOMAIN"
+DOMAIN_TEST="$DOMAIN_TEST"
+USER="$USER"
+DB="$DB"
+DB_SOURCE="$DB_SOURCE"
+DB_PASS="$DB_PASS"
+ENGINE="$ENGINE"
+SCRIPT="$SCRIPT"
+VERBOSE="$VERBOSE"
+DEBUG="$DEBUG"
+
+
+# variables used from config
+mailto="$mailto"
+mailto2="$mailto2"
+tmpldir="$tmpldir"
+homedir="$homedir"
+wwwdir="$wwwdir"
+sitedir="$sitedir"
+sitedir_old="$sitedir_old"
+nginxfile="$nginxfile"
+nginxfileen="$nginxfileen"
+nginx_server_scope_include="$nginx_server_scope_include"
+apachefile="$apachefile"
+apachefileen="$apachefileen"
+skeldir="$skeldir"
+
 
 if [ $# = 0 ]; then
 	usage
@@ -91,25 +120,25 @@ function site_setup_user {
 			is_verbose && echo "directory $homedir exists, don't create user."
 		fi
 
-		if [ $isnewuser = "1" ]; then
+		if [ "$isnewuser" = "1" ]; then
 			#user_pass=$(get_password 16)
 			#echo "please, enter password twice, generated password: ${color1}$user_pass${NC}"
 
 			is_verbose && echo "useradd --create-home --shell=/bin/bash $USER"
 			#adduser $USER
-			useradd --create-home --shell=/bin/bash $USER
+			useradd --create-home --shell=/bin/bash "$USER"
 
-			mkdir -p $homedir/log
-			mkdir -p $wwwdir
-			mkdir -p $homedir/.cache
-			mkdir -p $homedir/.config
-			mkdir -p $homedir/.local
-			mkdir -p $homedir/.ssh
-			touch $homedir/.ssh/authorized_keys
+			mkdir -p "$homedir/log"
+			mkdir -p "$wwwdir"
+			mkdir -p "$homedir/.cache"
+			mkdir -p "$homedir/.config"
+			mkdir -p "$homedir/.local"
+			mkdir -p "$homedir/.ssh"
+			touch "$homedir/.ssh/authorized_keys"
 
-			ssh-add-keys $USER
+			ssh-add-keys "$USER"
 
-			user-setup $USER www > /dev/null
+			user-setup "$USER" www > /dev/null
 		fi
 	else
 		echo "$homedir exists, skip user creation"
@@ -138,15 +167,15 @@ function site_setup_apache {
 	apachefile="$apachefile"
 
 	tempfile=$(mktemp -t site-setup-apache-XXXX)
-	cp $tmpldir/site_apache.conf $tempfile
-	sed -i "s|{domain}|$DOMAIN|g" $tempfile
-	sed -i "s|{sitedir}|$sitedir|g" $tempfile
-	sed -i "s|{uid}|$USER|g" $tempfile
-	sed -i "s|{gid}|$USER|g" $tempfile
+	cp "$tmpldir/site_apache.conf" "$tempfile"
+	sed -i "s|{domain}|$DOMAIN|g" "$tempfile"
+	sed -i "s|{sitedir}|$sitedir|g" "$tempfile"
+	sed -i "s|{uid}|$USER|g" "$tempfile"
+	sed -i "s|{gid}|$USER|g" "$tempfile"
 	if [ "$DOMAIN_TEST" != None ]; then
-		sed -i "s|{domain_test}| $DOMAIN_TEST|g" $tempfile
+		sed -i "s|{domain_test}| $DOMAIN_TEST|g" "$tempfile"
 	else
-		sed -i "s|{domain_test}||g" $tempfile
+		sed -i "s|{domain_test}||g" "$tempfile"
 	fi
 
 	mv "$tempfile" "$apachefile"
@@ -184,25 +213,25 @@ function site_setup_database {
 			if [ "$DEBUG" = True ]; then
 				is_verbose && echo "not backup old database"
 			else
-				is_verbose && echo backup and drop database $DB...
-				dbdump $DB > /dev/null 2>&1
+				is_verbose && echo "backup and drop database $DB..."
+				dbdump "$DB" > /dev/null 2>&1
 			fi
 			is_verbose && echo "DROP DATABASE $DB;" | mysql
 			#echo "CREATE DATABASE $DB;" | mysql
 		fi
 	fi
 
-	cp $tmpldir/mysql.sql $tmpldir/mysql.sql.tmp
-	sed -i "s|{db}|$DB|g" $tmpldir/mysql.sql.tmp
-	sed -i "s|{user}|$USER|g" $tmpldir/mysql.sql.tmp
-	sed -i "s|{db_pass}|$DB_PASS|g" $tmpldir/mysql.sql.tmp
-	is_verbose && cat $tmpldir/mysql.sql.tmp
-	mysql < $tmpldir/mysql.sql.tmp
-	rm $tmpldir/mysql.sql.tmp
+	cp "$tmpldir/mysql.sql" "$tmpldir/mysql.sql.tmp"
+	sed -i "s|{db}|$DB|g" "$tmpldir/mysql.sql.tmp"
+	sed -i "s|{user}|$USER|g" "$tmpldir/mysql.sql.tmp"
+	sed -i "s|{db_pass}|$DB_PASS|g" "$tmpldir/mysql.sql.tmp"
+	is_verbose && cat "$tmpldir/mysql.sql.tmp"
+	mysql < "$tmpldir/mysql.sql.tmp"
+	rm "$tmpldir/mysql.sql.tmp"
 
 	if [ "$DB_SOURCE" != "" ]; then
 		# TODO: копируем базу
-		mysqldump $DB_SOURCE | mysql $DB
+		mysqldump "$DB_SOURCE" | mysql "$DB"
 	fi
 }
 
@@ -231,34 +260,36 @@ function site_setup_script {
 	DEBUG="$DEBUG"
 	VERBOSE="$VERBOSE"
 
+	skeldir="$skeldir"
+
 	if [ "$SCRIPT" != "" ]; then
 		is_verbose && echo start setup script
 		if [ "$SCRIPT" = "drupal" ]; then
 			SCRIPT=/usr/local/bin/drupal-setup
 		fi
 
-		if [ ! -f "$SCRIPT" ] && [ command -v $SCRIPT >/dev/null 2>&1 ]; then
+		if [ ! -f "$SCRIPT" ] && [ command -v "$SCRIPT" >/dev/null 2>&1 ]; then
 			is_verbose && echo "$SCRIPT not found! exit"
 			exit 1
 		fi
 
 		# файлы, недоступные скрипту установки копируем в папку сайта
-		mkdir -p $skeldir/sites/all/modules
-		cp -r /usr/local/drupal/config/ $skeldir
-		cp -r /usr/local/drupal/patches/ $skeldir
-		cp -r /usr/local/drupal/libraries/ $skeldir/sites/all
-		cp -r /usr/local/drupal/features/ $skeldir/sites/all/modules/features_viasite
-		cp -r /usr/local/drupal/modules/ $skeldir/sites/all/modules
-		cp -r /usr/local/drupal/themes/ $skeldir/sites/all
+		mkdir -p "$skeldir/sites/all/modules"
+		cp -r /usr/local/drupal/config/ "$skeldir"
+		cp -r /usr/local/drupal/patches/ "$skeldir"
+		cp -r /usr/local/drupal/libraries/ "$skeldir/sites/all"
+		cp -r /usr/local/drupal/features/ "$skeldir/sites/all/modules/features_viasite"
+		cp -r /usr/local/drupal/modules/ "$skeldir/sites/all/modules"
+		cp -r /usr/local/drupal/themes/ "$skeldir/sites/all"
 
-		echo "chown -R $user:$user $sitedir"
-		chown -R $USER:$USER $sitedir
+		echo "chown -R $USER:$USER $sitedir"
+		chown -R "$USER":"$USER" "$sitedir"
 
 		command="$SCRIPT $DOMAIN --sitedir $sitedir --user $USER --db_pass $DB_PASS --db $DB --logfile $logfile --drupal_profile $DRUPAL_PROFILE"
 		if [ "$DEBUG" = True ]; then command="$command --debug"; fi
 		if [ "$VERBOSE" = True ]; then command="$command --verbose"; fi
-		is_verbose && echo su -c \"$command\" $USER
-		su -c "$command" $USER
+		is_verbose && echo su -c \"$command\" "$USER"
+		su -c "$command" "$USER"
 
 	else
 		is_verbose && echo "no script defined"
@@ -277,8 +308,8 @@ main() {
 	site_setup_user
 
 	# тут юзер точно создан
-	chown $USER:$USER $logfile
-	chown $USER:$USER $settings_php
+	chown "$USER":"$USER" "$logfile"
+	chown "$USER":"$USER" "$settings_php"
 
 	echo -e "\n${color1}# 2. extract engine files${NC}"
 	command_args=""
@@ -305,7 +336,7 @@ main() {
 	site_setup_database
 
 	echo -e "\n${color1}# 6. domain${NC}"
-	site-setup-domain --domain $DOMAIN
+	site-setup-domain --domain "$DOMAIN"
 
 	echo -e "\n${color1}# 7. setup script${NC}"
 	site_setup_script
@@ -325,9 +356,9 @@ main() {
 		if [ -n "$DB" ]; then
 			echo "mysql --execute=\"DROP DATABASE $DB\""
 		fi
-		if [ $(ls $wwwdir | wc -l) = "1" ]; then
-			echo deluser $USER
-			echo rm -rf $homedir
+		if [ $(ls "$wwwdir" | wc -l) = "1" ]; then
+			echo deluser "$USER"
+			echo rm -rf "$homedir"
 		fi
 		echo ""
 		echo "##################################################"
@@ -335,10 +366,10 @@ main() {
 	fi
 
 	#echo created user $USER with password $user_pass
-	echo "domain: $DOMAIN" >> $logfile
-	echo "site root: $sitedir" >> $logfile
-	echo "mysql database: $DB" >> $logfile
-	echo "mysql password: $DB_PASS" >> $logfile
+	echo "domain: $DOMAIN" >> "$logfile"
+	echo "site root: $sitedir" >> "$logfile"
+	echo "mysql database: $DB" >> "$logfile"
+	echo "mysql password: $DB_PASS" >> "$logfile"
 
 	if [ "$SCRIPT" != "drupal" ]; then
 		echo "for cron exec: cd $sitedir && drs cron-add"
@@ -347,22 +378,22 @@ main() {
 	if [ "$DEBUG" != True ]; then
 		body="[site-setup] $DOMAIN passwords"
 		if [ -n "$mailto" ]; then
-			mail -s "$body" $mailto < $logfile
-			echo email sent to $mailto
+			mail -s "$body" "$mailto" < "$logfile"
+			echo "email sent to $mailto"
 		fi
 
 		if [ -n "$mailto2" ]; then
-			mail -s "$body" $mailto2 < $logfile
-			echo email sent to $mailto2
+			mail -s "$body" "$mailto2" < "$logfile"
+			echo "email sent to $mailto2"
 		fi
 	fi
 	echo ""
 
-	cat $logfile
+	cat "$logfile"
 
 	end_time=$(date +%s)
 	runtime=$((end_time-start_time))
-	echo finished at $runtime seconds
+	echo "finished at $runtime seconds"
 }
 
 main "$@"
