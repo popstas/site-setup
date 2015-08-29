@@ -1,11 +1,10 @@
 #!/bin/bash
 # 29.08.2015
 
-set -e
 . /usr/share/site-setup/lib/optparse
 
 add_arglim 0
-add_option engine -i "" "Engine source (tgz url, tgz file or directory), default: empty"
+add_option engine -i None "Engine source (tgz url, tgz file or directory), default: empty"
 add_option domain -d "" "Site main domain"
 add_option user -u "" "Site user"
 add_option db -b "" "DB name"
@@ -19,10 +18,11 @@ add_flag debug -m False "Debug"
 
 parseargs $@
 . /usr/share/site-setup/lib/init
-
 set -eu
 
+
 site_setup_engine() {
+	# variables from optparse
 	USER="$USER"
 	DOMAIN="$DOMAIN"
 	REWRITE="$REWRITE"
@@ -32,11 +32,14 @@ site_setup_engine() {
 	DB_SOURCE="$DB_SOURCE"
 	DB_PASS="$DB_PASS"
 
+	# variables from config
 	wwwdir="$wwwdir"
 	sitedir="$sitedir"
 	sitedir_old="$sitedir_old"
 	homedir="$homedir"
+	test_directory="$test_directory"
 
+	set -x
 	if [ -z "$DOMAIN" ] || [ -z "$ENGINE" ] || [ -z "$USER" ]; then
 		if [ -z "$DOMAIN" ]; then echo "--domain required"; fi
 		if [ -z "$ENGINE" ]; then echo "--engine required"; fi
@@ -70,7 +73,7 @@ site_setup_engine() {
 	mkdir -p "$sitedir"
 
 	# empty engine
-	if [ "$ENGINE" = "" ]; then
+	if [ "$ENGINE" = None ]; then
 		# ничего не делаем
 		is_verbose && echo "empty engine"
 		cd "$sitedir"
@@ -153,7 +156,9 @@ site_setup_engine() {
 		mkdir -p "$homedir/drush-backups"
 	fi
 
-	is_debug && touch "$sitedir/.excluded"
+	if [ $(echo "$sitedir" | grep -c "$test_directory") = 1 ]; then
+		touch "$sitedir/.excluded"
+	fi
 
 	chown -R "$USER"."$USER" "$sitedir"
 	find "$sitedir" -type d -exec chmod 755 {} \;

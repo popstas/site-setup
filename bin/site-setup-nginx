@@ -3,7 +3,6 @@
 # 28.08.2015 - some rewrites
 script_version=1.0
 
-set -e
 . /usr/share/site-setup/lib/optparse
 
 add_arglim 0
@@ -16,8 +15,10 @@ add_flag "test" -r False "dry-run, no real actions, only test"
 
 add_info "Site setup: nginx $script_version"
 add_example "$0 --domain example.com --domain_test test.example.com --sitedir /home/example/www/example.com"
+
 parseargs $@
 . /usr/share/site-setup/lib/init
+set -eu
 
 # variables from optparse
 DOMAIN="$DOMAIN"
@@ -29,18 +30,18 @@ TEST="$TEST"
 tmpldir="$tmpldir"
 nginxfile="$nginxfile"
 nginxfileen="$nginxfileen"
+nginx_server_scope_include_test="$nginx_server_scope_include_test"
 test_directory="$test_directory"
 
 set -u
 
 TMPL="$tmpldir/site_nginx.conf"
+nginx_server_scope_include=""
 
 if [ -z "$nginxfile" ] || [ -z "$nginxfileen" ]; then
 	echo "nginxfile or nginxfileen not defined"
 	exit 1
 fi
-
-nginx_server_scope_include=""
 
 tempfile=$(mktemp -t site-setup-nginx-XXXX)
 
@@ -56,7 +57,7 @@ trap 'exit_command' EXIT
 # блочим на айпи все, что ставится в тестовую папку
 if [ $(echo "$SITEDIR" | grep -c "$test_directory") = 1 ]; then
 	echo "Site blocked on office IP!"
-	nginx_server_scope_include="include /etc/nginx/whitelist-ips;"
+	nginx_server_scope_include="$nginx_server_scope_include_test"
 fi
 
 cp "$TMPL" "$tempfile"
@@ -75,5 +76,5 @@ else
 	# enable sites
 	echo cp "$tempfile" "$nginxfile"
 	cp "$tempfile" "$nginxfile"
-	ln -s "$nginxfile" "$nginxfileen" > /dev/null 2>&1
+	ln -s "$nginxfile" "$nginxfileen" > /dev/null 2>&1 || true
 fi

@@ -13,7 +13,6 @@
 ################################################################
 
 script_version=1.0.1
-set -e
 
 if [ ! command -v "user-setup" >/dev/null 2>&1 ]; then
 	echo >&2 "site-setup requires server-scripts"
@@ -29,9 +28,9 @@ add_option user -u "" "Site user"
 add_option db -b "" "DB name"
 add_option db_source -j "" "DB name"
 add_option db_pass -p "" "DB password"
-add_option engine -i "" "Engine source (tgz url, tgz file or directory), default: empty"
+# None required for engine
+add_option engine -i None "Engine source (tgz url, tgz file or directory), default: empty"
 add_option script -s "" "Setup script"
-#add_option config -c "" "Configuration file"
 add_option drupal_profile -r "minimal" "Drupal installation profile, default: minimal"
 
 add_flag rewrite -r False "Purge installed site before install"
@@ -43,10 +42,12 @@ add_info "Site install script v$script_version"
 add_example "$0 --user username --db db_name --domain example.com --engine /path/to/engine --db_pass SDLFksdfoi90wf9 --script drupal-setup --rewrite"
 
 parseargs $@
+set -eu
 # include init only after parse args!
 . /usr/share/site-setup/lib/init
 
-# variables used from optparse
+
+# variables from optparse
 DOMAIN="$DOMAIN"
 DOMAIN_TEST="$DOMAIN_TEST"
 USER="$USER"
@@ -59,7 +60,7 @@ VERBOSE="$VERBOSE"
 DEBUG="$DEBUG"
 
 
-# variables used from config
+# variables from config
 mailto="$mailto"
 mailto2="$mailto2"
 tmpldir="$tmpldir"
@@ -69,7 +70,6 @@ sitedir="$sitedir"
 sitedir_old="$sitedir_old"
 nginxfile="$nginxfile"
 nginxfileen="$nginxfileen"
-nginx_server_scope_include="$nginx_server_scope_include"
 apachefile="$apachefile"
 apachefileen="$apachefileen"
 skeldir="$skeldir"
@@ -79,7 +79,7 @@ if [ $# = 0 ]; then
 	usage
 fi
 
-if [ -z "$DB" ] && [ "$ENGINE" != "" ]; then
+if [ -z "$DB" ] && [ "$ENGINE" != None ]; then
 	echo "db not set"
 	usage
 fi
@@ -104,7 +104,6 @@ exit_command() {
 	rm "$settings_php"
 	rm -rf "$skeldir"
 	bell
-	exit 1
 }
 
 trap 'exit_command' EXIT
@@ -168,7 +167,7 @@ site_setup_apache() {
 	fi
 
 	mv "$tempfile" "$apachefile"
-	ln -s "$apachefile" "$apachefileen" > /dev/null 2>&1
+	ln -s "$apachefile" "$apachefileen" > /dev/null 2>&1 || true
 }
 
 
@@ -300,14 +299,14 @@ main() {
 	chown "$USER":"$USER" "$logfile"
 	chown "$USER":"$USER" "$settings_php"
 
-	echo -e "\n${color1}# 2. extract engine files${NC}"
+	echo -e "\n${color1}# 2. engine${NC}"
 	command_args=""
 	if [ "$REWRITE" = True ]; then command_args="$command_args --rewrite"; fi
 	if [ "$DEBUG" = True ]; then command_args="$command_args --debug"; fi
 	if [ "$VERBOSE" = True ]; then command_args="$command_args --verbose"; fi
 	if [ -n "$DB_SOURCE" ]; then command_args="$command_args --db_source $DB_SOURCE"; fi
 	if [ -n "$DB_PASS" ]; then command_args="$command_args --db_pass $DB_PASS"; fi
-	site-setup-engine --user "$USER" --engine "$ENGINE" --domain "$DOMAIN" $command_args
+	site-setup-engine --engine "$ENGINE" --user "$USER" --domain "$DOMAIN" $command_args
 
 	echo -e "\n${color1}# 3. apache config${NC}"
 	site_setup_apache
@@ -350,11 +349,12 @@ main() {
 		echo ""
 	fi
 
-	#echo created user $USER with password $user_pass
 	echo "domain: $DOMAIN" >> "$logfile"
 	echo "site root: $sitedir" >> "$logfile"
-	echo "mysql database: $DB" >> "$logfile"
-	echo "mysql password: $DB_PASS" >> "$logfile"
+	if [ -n "$DB" ]; then
+		echo "mysql database: $DB" >> "$logfile"
+		echo "mysql password: $DB_PASS" >> "$logfile"
+	fi
 
 	if [ "$SCRIPT" != "drupal" ]; then
 		echo "for cron exec: cd $sitedir && drs cron-add"
