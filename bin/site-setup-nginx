@@ -52,8 +52,6 @@ exit_command() {
 trap 'exit_command' EXIT
 
 
-
-
 # блочим на айпи все, что ставится в тестовую папку
 if [ $(echo "$SITEDIR" | grep -c "$test_directory") = 1 ]; then
 	echo "Site blocked on office IP!"

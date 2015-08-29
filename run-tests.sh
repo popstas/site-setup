@@ -31,7 +31,7 @@ if [ "$test_module" = "--tap" ]; then
 	test_module=""
 	options="$options --tap"
 fi
-test_path="$BATS_TEST_ROOT/test/$test_module.bats"
+test_path="$BATS_TEST_ROOT/tests/$test_module.bats"
 if [ -n "$test_module" ]; then
 	if [ -r "$test_path" ]; then
 		bats $options "$test_path"
@@ -40,5 +40,5 @@ if [ -n "$test_module" ]; then
 		exit 1
 	fi
 else
-	bats $options "$BATS_TEST_ROOT/test"
+	bats $options "$BATS_TEST_ROOT/tests"
 fi

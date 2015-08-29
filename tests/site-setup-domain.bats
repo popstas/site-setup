@@ -1,16 +1,27 @@
 #!/usr/bin/env bats
 
-@test "new domain" {
-	run site-setup-domin --domain example1.com
+@test "site-setup-domain: without domain" {
+	run site-setup-domain
+	echo >&2 "$output"
+	[ $status -eq 1 ]
+}
+
+@test "site-setup-domain: new domain" {
+	run site-setup-domain --domain example1.com
+	echo >&2 "$output"
 	[ $status -eq 0 ]
 }
 
-@test "existing domain" {
-	run site-setup-domin --domain example1.com
+@test "site-setup-domain: existing domain" {
+	run site-setup-domain --domain example1.com
+	echo >&2 "$output"
 	[ $status -eq 0 ]
+	[ $(expr "${lines[0]}" : "zone example1.com exists") -ne 0 ]
 }
 
-@test "3rd level domain" {
-	run site-setup-domin --domain test.example.com
+@test "site-setup-domain: 3rd level domain" {
+	run site-setup-domain --domain test.example.com
+	echo >&2 "$output"
 	[ $status -eq 0 ]
+	[ $(expr "${lines[0]}" : "Only second-level domains are delegated") -ne 0 ]
 }

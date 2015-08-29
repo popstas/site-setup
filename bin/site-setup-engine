@@ -39,7 +39,6 @@ site_setup_engine() {
 	homedir="$homedir"
 	test_directory="$test_directory"
 
-	set -x
 	if [ -z "$DOMAIN" ] || [ -z "$ENGINE" ] || [ -z "$USER" ]; then
 		if [ -z "$DOMAIN" ]; then echo "--domain required"; fi
 		if [ -z "$ENGINE" ]; then echo "--engine required"; fi
