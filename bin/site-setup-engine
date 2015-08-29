@@ -1,0 +1,143 @@
+#!/bin/bash
+# 29.08.2015
+
+set -e
+#set -x
+
+. /usr/share/site-setup/lib/optparse
+
+add_arglim 0
+add_option engine -i "" "Engine source (tgz url, tgz file or directory), default: empty"
+add_option domain -d "" "Site main domain"
+add_option user -u "" "Site user"
+add_option db -b "" "DB name"
+add_option db_source -j "" "DB name"
+add_option db_pass -p None "DB password"
+
+add_flag rewrite -r False "Purge installed site before install"
+
+add_flag verbose -v False "Verbose output"
+add_flag debug -m False "Debug"
+
+parseargs $@
+. /usr/share/site-setup/lib/init
+
+set -u
+
+function site_setup_engine {
+	USER="$USER"
+	DOMAIN="$DOMAIN"
+	REWRITE="$REWRITE"
+	DEBUG="$DEBUG"
+	ENGINE="$ENGINE"
+	DB="$DB"
+	DB_SOURCE="$DB_SOURCE"
+	DB_PASS="$DB_PASS"
+
+	wwwdir="$wwwdir"
+	sitedir="$sitedir"
+	sitedir_old="$sitedir_old"
+	homedir="$homedir"
+
+	if [ -z "$DOMAIN" ] || [ -z "$ENGINE" ] || [ -z "$USER" ]; then
+		if [ -z "$DOMAIN" ]; then echo "--domain required"; fi
+		if [ -z "$ENGINE" ]; then echo "--engine required"; fi
+		if [ -z "$USER" ]; then echo "--user required"; fi
+		exit 1
+	fi
+
+	if [ "$REWRITE" = True ]; then
+		if [ -d "$sitedir_old" ]; then
+			is_verbose && echo rm -rf "$sitedir_old"
+			rm -rf "$sitedir_old"
+		fi
+
+		if [ -d "$sitedir" ]; then
+			if [ "$DEBUG" = True ]; then
+				echo rm -rf "$sitedir"
+				rm -rf "$sitedir"
+				#is_verbose && echo "old site not deleted"
+			else
+				is_verbose && echo "move old site to $sitedir_old"
+				is_verbose && echo mv "$sitedir" "$sitedir_old"
+				mv "$sitedir" "$sitedir_old"
+			fi
+		fi
+	fi
+
+	if [ "$REWRITE" != True ] && [ -d "$sitedir" ]; then
+		echo "Directory $sitedir exists, do nothing."
+		echo "If you need to rewrite or update site, use --rewrite option"
+		exit 1
+	fi
+
+	mkdir -p "$sitedir"
+
+	# empty engine
+	if [ "$ENGINE" = "" ]; then
+		# ничего не делаем
+		is_verbose && echo "empty engine"
+		cd "$sitedir"
+
+	# latest drupal
+	elif [ "$ENGINE" = "drupal" ]; then
+		is_verbose && echo "drush dl drupal --drupal-project-rename=$DOMAIN"
+		cd "$wwwdir"
+		rmdir "$sitedir"
+		drush dl drupal --drupal-project-rename="$DOMAIN"
+		cd "$sitedir"
+
+	# drush makefile
+	elif [ $(echo "$ENGINE" | grep -c ".yml") = 1 ]; then
+		is_verbose && echo "drush7 make $ENGINE $DOMAIN"
+		cd "$wwwdir"
+		rmdir "$sitedir"
+		drush7 make "$ENGINE" "$DOMAIN"
+		cd "$sitedir"
+
+	# tar.gz archive
+	elif [ -f "$ENGINE" ]; then
+		is_verbose && echo "extract local archive"
+		cd "$sitedir"
+		tar -xf "$ENGINE"
+
+	# directory
+	# remote ssh path like user@example.com:/home/example/www/example.com
+	elif [ -d "$ENGINE" ] || [ $(echo "$ENGINE" | grep "@") != "" ]; then
+		is_verbose && echo rsync --recursive --delete "$ENGINE/" "$sitedir"
+		rsync --recursive --delete "$ENGINE/" "$sitedir"
+
+		# замена доступов к БД в settings.php
+		if [ "$DB_SOURCE" != "" ] && [ -f "$sitedir/sites/default/settings.php" ]; then
+			is_verbose && echo "replace db access in settings.php"
+			sed -i "s/'database' => '$DB_SOURCE'/'database' => '$DB'/g" "$sitedir/sites/default/settings.php"
+			sed -i "s/'username' => '$DB_SOURCE'/'username' => '$USER'/g" "$sitedir/sites/default/settings.php"
+			sed -i "s/'password' => '.*'/'password' => '$DB_PASS'/g" "$sitedir/sites/default/settings.php"
+		fi
+
+		cd "$sitedir"
+
+	# url to tar.gz archive
+	else
+		is_verbose && echo "download engine"
+		wget -O /distrib/engine.tar.gz "$ENGINE"
+		cd "$sitedir"
+		tar -xf /distrib/engine.tar.gz
+	fi
+
+	if [ "$ENGINE" = "drupal" ]; then
+		mkdir -p "$homedir/drush-backups"
+	fi
+
+	is_debug && touch "$sitedir/.excluded"
+
+	chown -R "$USER"."$USER" "$sitedir"
+	find "$sitedir" -type d -exec chmod 755 {} \;
+	find "$sitedir" -type f -exec chmod 644 {} \;
+}
+
+main() {
+	site_setup_engine
+}
+
+main "$@"

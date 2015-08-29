@@ -7,11 +7,12 @@
 # 03.04.2015 - optional DB
 # 25.08.2015 - drush make
 # 27.08.2015 - installer & config
-# v1.0.0
+# 29.08.2015 - site-setup-engine
+# v1.0.1
 #
 ################################################################
 
-script_version=1.0.0
+script_version=1.0.1
 
 if [ ! command -v $SCRIPT >/dev/null 2>&1 ]; then
 	echo >&2 "site-setup requires server-scripts"
@@ -26,14 +27,13 @@ add_option domain_test -t None "Site test domain"
 add_option user -u "" "Site user"
 add_option db -b "" "DB name"
 add_option db_source -j "" "DB name"
-add_option db_pass -p None "DB password"
+add_option db_pass -p "" "DB password"
 add_option engine -i None "Engine source (tgz url, tgz file or directory), default: empty"
 add_option script -s "" "Setup script"
 #add_option config -c "" "Configuration file"
 add_option drupal_profile -r "minimal" "Drupal installation profile, default: minimal"
 
 add_flag rewrite -r False "Purge installed site before install"
-add_flag no_reinstall -o False "No purge or install site"
 
 add_flag verbose -v False "Verbose output"
 add_flag debug -m False "Debug"
@@ -54,14 +54,9 @@ if [ -z "$DB" ] && [ "$ENGINE" != "None" ]; then
 	usage
 fi
 
-if [ "$REWRITE" = True ] && [ "$NO_REINSTALL" = True ]; then
-	echo "--rewrite и --no_reinstall взаимоисключают друг друга"
-	exit 1
-fi
-
 start_time=$(date +%s)
 
-if [ "$DB_PASS" = None ]; then
+if [ -z "$DB_PASS" ]; then
 	DB_PASS=$(get_password 16)
 fi
 #admin_pass=$(get_password 10)
@@ -127,135 +122,7 @@ function site_setup_user {
 
 
 # 2. extract engine files
-function site_setup_engine {
-	USER="$USER"
-	REWRITE="$REWRITE"
-	sitedir="$sitedir"
-	sitedir_old="$sitedir_old"
-	DEBUG="$DEBUG"
-	ENGINE="$ENGINE"
-	DB_SOURCE="$DB_SOURCE"
-	DB_PASS="$DB_PASS"
-	homedir="$homedir"
-
-	if [ "$REWRITE" = True ]; then
-		if [ -d "$sitedir_old" ]; then
-			is_verbose && echo rm -rf $sitedir_old
-			rm -rf $sitedir_old
-		fi
-		
-		if [ -d "$sitedir" ]; then
-			if [ "$DEBUG" = True ]; then
-				echo rm -rf $sitedir
-				rm -rf $sitedir
-				#is_verbose && echo "old site not deleted"
-			else
-				is_verbose && echo "move old site to $sitedir_old"
-				is_verbose && echo mv $sitedir $sitedir_old
-				mv $sitedir $sitedir_old
-			fi
-		fi
-	fi
-
-	if [ "$REWRITE" != True ] && [ "$NO_REINSTALL" != True ] && [ -d "$sitedir" ]; then
-		echo "Directory $sitedir exists, do nothing."
-		echo "If you need to rewrite or update site, use --rewrite or --no_reinstall options"
-		exit 1
-	fi
-
-	mkdir -p $sitedir
-
-	# empty engine
-	if [ "$ENGINE" = "None" ]; then
-		# ничего не делаем
-		is_verbose && echo "empty engine"
-		cd $sitedir
-
-	# latest drupal
-	elif [ "$ENGINE" = "drupal" ]; then
-		is_verbose && echo "drush dl drupal --drupal-project-rename=$DOMAIN"
-		cd $wwwdir
-		rmdir $sitedir
-		drush dl drupal --drupal-project-rename=$DOMAIN
-		cd $sitedir
-
-	# drush makefile
-	elif [ $(echo "$ENGINE" | grep -c ".yml") = 1 ]; then
-		is_verbose && echo "drush7 make $ENGINE $DOMAIN"
-		cd $wwwdir
-		rmdir $sitedir
-		drush7 make $ENGINE $DOMAIN
-		cd $sitedir
-
-	# tar.gz archive
-	elif [ -f "$ENGINE" ]; then
-		is_verbose && echo "extract local archive"
-		cd $sitedir
-		tar -xf $ENGINE
-
-	# directory
-	elif [ -d "$ENGINE" ]; then
-		if [ "$NO_REINSTALL" = True ] && [ -f "$sitedir/sites/default/settings.php" ]; then
-			is_verbose && echo "backup old settings.php"
-			cat $sitedir/sites/default/settings.php > $settings_php
-		fi
-
-		is_verbose && echo rsync --one-file-system --recursive --delete "$ENGINE/" $sitedir
-		rsync --one-file-system --recursive --delete "$ENGINE/" $sitedir
-
-		if [ "$NO_REINSTALL" = True ] && [ -f "$sitedir/sites/default/settings.php" ]; then
-			is_verbose && echo "restore settings_oldinstall.php"
-			cp $settings_php $sitedir/sites/default/settings_oldinstall.php
-		fi
-
-		# замена доступов к БД в settings.php
-		if [ "$DB_SOURCE" != "" ] && [ -f "$sitedir/sites/default/settings.php" ]; then
-			is_verbose && echo "replace db access in settings.php"
-			sed -i "s/'database' => '$DB_SOURCE'/'database' => '$DB'/g" $sitedir/sites/default/settings.php
-			sed -i "s/'username' => '$DB_SOURCE'/'username' => '$USER'/g" $sitedir/sites/default/settings.php
-			sed -i "s/'password' => '.*'/'password' => '$DB_PASS'/g" $sitedir/sites/default/settings.php
-		fi
-
-		cd $sitedir
-
-	# remote ssh path like user@example.com:/home/example/www/example.com
-	elif [ $(echo "$ENGINE" | grep "@") != "" ]; then
-		echo rsync --recursive --delete "$ENGINE/" $sitedir
-		rsync --recursive --delete "$ENGINE/" $sitedir
-
-		if [ "$NO_REINSTALL" = True ] && [ -f "$sitedir/sites/default/settings.php" ]; then
-			is_verbose && echo "restore settings_oldinstall.php"
-			cp $settings_php $sitedir/sites/default/settings_oldinstall.php
-		fi
-
-		# замена доступов к БД в settings.php
-		if [ "$DB_SOURCE" != "" ] && [ -f "$sitedir/sites/default/settings.php" ]; then
-			is_verbose && echo "replace db access in settings.php"
-			sed -i "s/'database' => '$DB_SOURCE'/'database' => '$DB'/g" $sitedir/sites/default/settings.php
-			sed -i "s/'username' => '$DB_SOURCE'/'username' => '$USER'/g" $sitedir/sites/default/settings.php
-			sed -i "s/'password' => '.*'/'password' => '$DB_PASS'/g" $sitedir/sites/default/settings.php
-		fi
-
-		cd $sitedir
-
-	# url to tar.gz archive
-	else
-		is_verbose && echo "download engine"
-		wget -O /distrib/engine.tar.gz $ENGINE
-		cd $sitedir
-		tar -xf /distrib/engine.tar.gz
-	fi
-
-	if [ "$ENGINE" = "drupal" ]; then
-		mkdir -p "$homedir/drush-backups"
-	fi
-
-	is_debug && touch "$sitedir/.excluded"
-
-	chown -R $USER.$USER "$sitedir"
-	find "$sitedir" -type d -exec chmod 755 {} \;
-	find "$sitedir" -type f -exec chmod 644 {} \;
-}
+# moved to script
 
 
 
@@ -390,7 +257,6 @@ function site_setup_script {
 		command="$SCRIPT $DOMAIN --sitedir $sitedir --user $USER --db_pass $DB_PASS --db $DB --logfile $logfile --drupal_profile $DRUPAL_PROFILE"
 		if [ "$DEBUG" = True ]; then command="$command --debug"; fi
 		if [ "$VERBOSE" = True ]; then command="$command --verbose"; fi
-		if [ "$NO_REINSTALL" = True ]; then command="$command --no_reinstall"; fi
 		is_verbose && echo su -c \"$command\" $USER
 		su -c "$command" $USER
 
@@ -415,78 +281,84 @@ main() {
 	chown $USER:$USER $settings_php
 
 	echo -e "\n${color1}# 2. extract engine files${NC}"
-	site_setup_engine
-
-	if [ "$NO_REINSTALL" != True ]; then
-		echo -e "\n${color1}# 3. apache config${NC}"
-		site_setup_apache
-
-		echo -e "\n${color1}# 4. nginx config${NC}"
-		site-setup-nginx --domain "$DOMAIN" --domain_test "$DOMAIN_TEST" --sitedir "$sitedir"
-
-		reload-web > /dev/null 2>&1
-
-		echo -e "\n${color1}# 5. database${NC}"
-		site_setup_database
-
-		echo -e "\n${color1}# 6. domain${NC}"
-		site-setup-domain --domain $DOMAIN
+	command_args=""
+	if [ "$REWRITE" = True ]; then command_args="$command_args --rewrite"; fi
+	if [ "$DEBUG" = True ]; then command_args="$command_args --debug"; fi
+	if [ "$VERBOSE" = True ]; then command_args="$command_args --verbose"; fi
+	if [ -n "$DB_SOURCE" ]; then command_args="$command_args --db_source $DB_SOURCE"; fi
+	if [ -n "$DB_PASS" ]; then command_args="$command_args --db_pass $DB_PASS"; fi
+	site-setup-engine --user "$USER" --engine "$ENGINE" --domain "$DOMAIN" $command_args
+	if [ $? -ne 0 ]; then
+		echo "setup engine failed"
+		exit 1
 	fi
+
+	echo -e "\n${color1}# 3. apache config${NC}"
+	site_setup_apache
+
+	echo -e "\n${color1}# 4. nginx config${NC}"
+	site-setup-nginx --domain "$DOMAIN" --domain_test "$DOMAIN_TEST" --sitedir "$sitedir"
+
+	reload-web > /dev/null 2>&1
+
+	echo -e "\n${color1}# 5. database${NC}"
+	site_setup_database
+
+	echo -e "\n${color1}# 6. domain${NC}"
+	site-setup-domain --domain $DOMAIN
 
 	echo -e "\n${color1}# 7. setup script${NC}"
 	site_setup_script
 
 
-	if [ "$NO_REINSTALL" != True ]; then
-		if [ "$VERBOSE" = True ]; then
-			echo ""
-			echo "##################################################"
-			echo ""
-			echo "for uninstall:"
-			echo "rm $nginxfile"
-			echo "rm $nginxfileen"
-			echo "rm $apachefile"
-			echo "rm $apachefileen"
-			echo "reload-web"
-			echo "rm -rf $sitedir"
-			if [ -n "$DB" ]; then
-				echo "mysql --execute=\"DROP DATABASE $DB\""
-			fi
-			if [ $(ls $wwwdir | wc -l) = "1" ]; then
-				echo deluser $USER
-				echo rm -rf $homedir
-			fi
-			echo ""
-			echo "##################################################"
-			echo ""
+	if [ "$VERBOSE" = True ]; then
+		echo ""
+		echo "##################################################"
+		echo ""
+		echo "for uninstall:"
+		echo "rm $nginxfile"
+		echo "rm $nginxfileen"
+		echo "rm $apachefile"
+		echo "rm $apachefileen"
+		echo "reload-web"
+		echo "rm -rf $sitedir"
+		if [ -n "$DB" ]; then
+			echo "mysql --execute=\"DROP DATABASE $DB\""
 		fi
-
-		#echo created user $USER with password $user_pass
-		echo "domain: $DOMAIN" >> $logfile
-		echo "site root: $sitedir" >> $logfile
-		echo "mysql database: $DB" >> $logfile
-		echo "mysql password: $DB_PASS" >> $logfile
-
-		if [ "$SCRIPT" != "drupal" ]; then
-			echo "for cron exec: cd $sitedir && drs cron-add"
-		fi
-
-		if [ "$DEBUG" != True ]; then
-			body="[site-setup] $DOMAIN passwords"
-			if [ -n "$mailto" ]; then
-				mail -s "$body" $mailto < $logfile
-				echo email sent to $mailto
-			fi
-
-			if [ -n "$mailto2" ]; then
-				mail -s "$body" $mailto2 < $logfile
-				echo email sent to $mailto2
-			fi
+		if [ $(ls $wwwdir | wc -l) = "1" ]; then
+			echo deluser $USER
+			echo rm -rf $homedir
 		fi
 		echo ""
-
-		cat $logfile
+		echo "##################################################"
+		echo ""
 	fi
+
+	#echo created user $USER with password $user_pass
+	echo "domain: $DOMAIN" >> $logfile
+	echo "site root: $sitedir" >> $logfile
+	echo "mysql database: $DB" >> $logfile
+	echo "mysql password: $DB_PASS" >> $logfile
+
+	if [ "$SCRIPT" != "drupal" ]; then
+		echo "for cron exec: cd $sitedir && drs cron-add"
+	fi
+
+	if [ "$DEBUG" != True ]; then
+		body="[site-setup] $DOMAIN passwords"
+		if [ -n "$mailto" ]; then
+			mail -s "$body" $mailto < $logfile
+			echo email sent to $mailto
+		fi
+
+		if [ -n "$mailto2" ]; then
+			mail -s "$body" $mailto2 < $logfile
+			echo email sent to $mailto2
+		fi
+	fi
+	echo ""
+
+	cat $logfile
 
 	end_time=$(date +%s)
 	runtime=$((end_time-start_time))
