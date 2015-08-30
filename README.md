@@ -94,5 +94,20 @@ site-setup-domain --domain example.com
 
 
 ## Баги и фичи:
-1. Сайты, создаваемые в подпапке `test_directory`, блокируются на IP адрес офиса!
-2. При использовании без `--script drupal` в системный cron не будет добавлено задание про сайт.
+1. Сайты, создаваемые в подпапке `test_directory`, блокируются на IP адрес офиса, в корне сайта создается файл .excluded
+2. site-setup-domain удобно запускать отдельно: `site-setup-domain --domain example.com`
+
+
+
+## Тестирование
+<a href="http://ci.viasite.ru/viewType.html?buildTypeId=SiteSetup_Build">
+<img src="http://ci.viasite.ru/app/rest/builds/buildType:(id:SiteSetup_Build)/statusIcon"/></a>
+
+Бесопаснее и быстрее всего это делать в докере, в подготовленном контейнере:
+```
+cd site-setup
+docker run --rm -v $PWD:/usr/local/src/site-setup popstas/squeeze bash ./docker-tests.sh
+```
+
+Без docker можно запускать run-tests.sh, тогда действия должны выполняться под root и могут испортить вам рабочую систему.
+`docker-tests.sh` можно запускать и вне docker, он устанавливает server-scripts и site-setup, предполагает, что исходники лежат в /usr/local/src/site-setup
