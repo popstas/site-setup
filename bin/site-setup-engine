@@ -102,9 +102,10 @@ site_setup_engine() {
 	# drush makefile
 	elif [ $(echo "$ENGINE" | grep -c ".yml") = 1 ]; then
 		drush_bin="drush"
-		if [ command -v "drush7" >/dev/null 2>&1 ]; then
+		command -v drush7 >/dev/null 2>&1 && {
 			drush_bin="drush7"
-		fi
+		}
+
 		is_verbose && echo "$drush_bin make $ENGINE $DOMAIN"
 		cd "$wwwdir"
 		rmdir "$sitedir"

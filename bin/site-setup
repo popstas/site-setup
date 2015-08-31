@@ -14,10 +14,10 @@
 
 script_version=1.1.0
 
-if [ ! command -v "user-setup" >/dev/null 2>&1 ]; then
+command -v "user-setup" >/dev/null 2>&1 || {
 	echo >&2 "site-setup requires server-scripts"
 	exit 1
-fi
+}
 
 . /usr/share/site-setup/lib/optparse
 
