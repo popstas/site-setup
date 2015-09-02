@@ -13,7 +13,7 @@
 #
 ################################################################
 
-script_version=1.1.0
+script_version=1.2.1
 
 command -v "user-setup" >/dev/null 2>&1 || {
 	echo >&2 "site-setup requires server-scripts"
