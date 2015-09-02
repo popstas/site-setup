@@ -22,6 +22,7 @@ command -v "user-setup" >/dev/null 2>&1 || {
 . /usr/share/site-setup/lib/optparse
 
 add_arglim 0
+add_option config -c "" "Bash-style config, one parameter per line, = delimeter"
 add_option domain -d None "Site main domain"
 add_option domain_test -t None "Site test domain"
 add_option user -u "" "Site user"
@@ -40,11 +41,6 @@ add_flag debug -m False "Debug"
 
 add_info "Site install script v$script_version"
 add_example "$0 --user username --db db_name --domain example.com --engine /path/to/engine --db_pass SDLFksdfoi90wf9 --script drupal-setup --rewrite"
-
-parseargs $@
-set -eu
-# include init only after parse args!
-. /usr/share/site-setup/lib/init
 
 
 # variables from optparse
@@ -73,40 +69,16 @@ nginxfileen="$nginxfileen"
 apachefile="$apachefile"
 apachefileen="$apachefileen"
 skeldir="$skeldir"
-
-
-if [ $# = 0 ]; then
-	usage
-fi
-
-if [ -z "$DB" ] && [ "$ENGINE" != None ]; then
-	echo "db not set"
-	usage
-fi
-
-start_time=$(date +%s)
-
-if [ -z "$DB_PASS" ]; then
-	DB_PASS=$(get_password 16)
-fi
-#admin_pass=$(get_password 10)
-isdrupal=0
-
-color1='\e[1;37m'
-color2='\e[0;37m'
-NC='\e[0m' # No Color
-
-logfile=$(mktemp -t site-setup-log-XXXX)
-settings_php=$(mktemp -t site-setup-settings_php-XXXX)
+configdir="$configdir"
 
 exit_command() {
-	rm "$logfile"
-	rm "$settings_php"
 	rm -rf "$skeldir"
 	bell
 }
 
-trap 'exit_command' EXIT
+
+
+
 
 # 1. system user
 site_setup_user() {
@@ -253,13 +225,14 @@ site_setup_script() {
 	if [ "$SCRIPT" != "" ]; then
 		is_verbose && echo start setup script
 		if [ "$SCRIPT" = "drupal" ]; then
-			SCRIPT=/usr/local/bin/drupal-setup
+			SCRIPT="drupal-setup"
 		fi
 
 		if [ ! -f "$SCRIPT" ] && [ command -v "$SCRIPT" >/dev/null 2>&1 ]; then
 			is_verbose && echo "$SCRIPT not found! exit"
 			exit 1
 		fi
+		SCRIPT=$(which "$SCRIPT")
 
 		# файлы, недоступные скрипту установки копируем в папку сайта
 		mkdir -p "$skeldir/sites/all/modules"
@@ -287,17 +260,89 @@ site_setup_script() {
 
 
 
+variables_init() {
+	set -eu
+
+	CONFIG="$CONFIG"
+	if [ -n "$CONFIG" ]; then
+		config_parse "$CONFIG"
+	fi
+
+	# include init only after parse args and config!
+	. /usr/share/site-setup/lib/init
+}
+
+config_parse() {
+	config_file="$1"
+
+	# config from directory
+	if [ -f "$configdir/$config_file" ]; then
+		config_file="$configdir/$config_file"
+	fi
+
+	if [ ! -f "$config_file" ]; then
+		echo "Config file '$config_file' not found, aborting."
+		exit 1
+	fi
+
+	for line in $(cat "$config_file" | grep -v "^#"); do
+		if [ $(echo "$line" | grep -c "=") != 1 ]; then
+			continue
+		fi
+		name=$(echo "$line" | cut -d'=' -f1 | tr '[:lower:]' '[:upper:]')
+		value=$(echo "$line" | cut -d'=' -f2)
+		eval "$name=\"$value\""
+	done
+}
+
 
 
 
 
 main() {
+	start_time=$(date +%s)
+
+	color1='\e[1;37m'
+	color2='\e[0;37m'
+	NC='\e[0m' # No Color
+
+	if [ $# = 0 ]; then
+		usage
+	fi
+
+	parseargs $@
+	variables_init "$@"
+
+	if [ -z "$DB" ] && [ "$ENGINE" != None ]; then
+		echo "db not set"
+		usage
+	fi
+
+	if [ -z "$USER" ]; then
+		echo "user not defined"
+		exit 1
+	fi
+
+	if [ -z "$DOMAIN" ]; then
+		echo "domain not defined"
+		exit 1
+	fi
+
+	if [ -z "$DB_PASS" ]; then
+		DB_PASS=$(get_password 16)
+	fi
+
+	logfile=$(mktemp -t site-setup-log-XXXX)
+	trap 'rm "$logfile"' EXIT
+	trap 'exit_command' EXIT
+
+	################### steps
+
 	echo -e "${color1}# 1. system user${NC}"
 	site_setup_user
 
 	# тут юзер точно создан
 	chown "$USER":"$USER" "$logfile"
-	chown "$USER":"$USER" "$settings_php"
 
 	echo -e "\n${color1}# 2. engine${NC}"
 	command_args=""
@@ -325,6 +370,7 @@ main() {
 	echo -e "\n${color1}# 7. setup script${NC}"
 	site_setup_script
 
+	################### end of steps
 
 	if [ "$VERBOSE" = True ]; then
 		echo ""

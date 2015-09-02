@@ -1,0 +1,98 @@
+#!/bin/bash
+script_version=0.2
+
+source /usr/share/site-setup/lib/optparse
+
+add_arglim 1
+#add_option domain -d None "Site domain"
+add_option sitedir -s None "Site install directory"
+add_option user -u None "Site system and db user"
+add_option db -b None "DB name"
+add_option db_pass -p None "DB password"
+add_option logfile -l None "Log file"
+add_option drupal_profile -r "minimal" "Drupal installation profile, default: minimal"
+
+add_flag verbose -v False "Verbose output"
+add_flag debug -m False "Debug"
+
+add_info "Drupal install script v$script_version"
+add_example "$0 test.ru --sitedir /home/viasite/www/test.ru --user viasite --db_pass aslkdjweofhj --db viasite_test_install"
+
+color1='\e[1;37m'
+color2='\e[0;37m'
+NC='\e[0m' # No Color
+
+is_verbose() {
+	if [ "$VERBOSE" = True ]; then return 0; else return 1; fi
+}
+
+is_debug() {
+	if [ "$DEBUG" = True ]; then return 0; else return 1; fi
+}
+
+
+
+drupal_setup_install() {
+	DOMAIN="$DOMAIN"
+	SITEDIR="$SITEDIR"
+	USER="$USER"
+	DB="$DB"
+	DB_PASS="$DB_PASS"
+	DRUPAL_PROFILE="$DRUPAL_PROFILE"
+
+	admin_pass=$(get_password 10)
+
+	if [ -f "$SITEDIR/sites/default/settings.php" ]; then
+		echo "sites/default/settings.php exists! exit"
+		exit 1
+	fi
+
+	echo -e "\n${color1}# 1. install drupal${NC}"
+
+	# check profile
+	profile_path="$SITEDIR/profiles/$DRUPAL_PROFILE"
+	if [ ! -d "$profile_path" ]; then
+		echo "Profile $DRUPAL_PROFILE not found, exit!"
+		exit 1;
+	fi
+
+	install_command="drush site-install $DRUPAL_PROFILE --locale=ru --db-url=mysql://${USER}:${DB_PASS}@localhost:3306/${DB} --account-mail=${mailto} --account-name=admin2 --account-pass=${admin_pass} --site-mail=${mailto} --site-name=\"${DOMAIN}\" -y"
+	is_verbose && echo $install_command
+	$install_command
+}
+
+
+
+
+
+
+
+
+
+main() {
+	parseargs $@
+	. /usr/share/site-setup/lib/init
+	set -eu
+
+	if [ $# = 0 ]; then
+		usage
+	fi
+
+	DOMAIN="$1"
+
+	if [ $(echo $DOMAIN | head -c1) = "-" ]; then
+		usage
+	fi
+
+	is_verbose && echo cd $SITEDIR
+	cd $SITEDIR
+
+	drupal_setup_install
+
+	echo "" >> $LOGFILE
+	echo site user: admin2 >> $LOGFILE
+	echo site pass: $admin_pass >> $LOGFILE
+	echo login link: $(drush uli admin2 -l http://$(basename "$PWD"))
+}
+
+main "$@"

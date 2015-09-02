@@ -40,6 +40,11 @@ site-setup --verbose \
  --script drupal
 ```
 
+или
+```
+site-setup --config default_drupal --user site --domain site.ru
+```
+
 ### Копирование существующего сайта
 `db-pass` нужно указывать текущий от юзера, иначе скрипт изменит пароль юзера mysql при установке!
 ```
@@ -54,7 +59,7 @@ site-setup --verbose \
 
 ### Настройка пустого сайта (без БД, только apache & nginx)
 ```
-site-setup --domain example.com
+site-setup --domain example.com --db example
 ```
 
 ### Настройка домена
@@ -65,6 +70,11 @@ site-setup-domain --domain example.com
 
 ## Параметры скрипта:
 Можно посмотреть через site-setup --help
+
+`--config` - конфиг в виде bash-скрипта. Конфиг переопределяет все, что указано параметрами к команде. 
+Параметры-флаги --param нужно указывать как param=True  
+Можно указывать полный путь к конфигу или только название конфига из /usr/share/site-setup/configs
+Появился в v1.1.2
 
 `--domain` - скрипт автоматом добавляет в dns сервера домен, если его там еще нет, site-setup-domain, Делегирование домена на стороне сервера
 

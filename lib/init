@@ -1,6 +1,9 @@
 #!/bin/bash
 
 . /etc/site-setup.conf
+if [ -n "$BATS_TEST" ]; then
+	. "$BATS_TEST_ROOT/site-setup.conf.example"
+fi
 
 get_password() {
 	len=12
