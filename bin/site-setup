@@ -244,6 +244,9 @@ site_setup_script() {
 variables_init() {
 	set -eu
 
+	# include init before config parse
+	. /usr/share/site-setup/lib/init
+
 	CONFIG="$CONFIG"
 	if [ -n "$CONFIG" ]; then
 		config_parse "$CONFIG"
