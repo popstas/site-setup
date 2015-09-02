@@ -164,10 +164,6 @@ site_setup_engine() {
 	if [ $(echo "$sitedir" | grep -c "$test_directory") = 1 ]; then
 		touch "$sitedir/.excluded"
 	fi
-
-	chown -R "$USER"."$USER" "$sitedir"
-	find "$sitedir" -type d -exec chmod 755 {} \;
-	find "$sitedir" -type f -exec chmod 644 {} \;
 }
 
 main() {

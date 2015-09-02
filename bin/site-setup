@@ -9,6 +9,7 @@
 # 27.08.2015 - installer & config
 # 29.08.2015 - site-setup-engine
 # 30.08.2015 - tests
+# 01.01.2015 and later - see git log
 #
 ################################################################
 
@@ -22,7 +23,7 @@ command -v "user-setup" >/dev/null 2>&1 || {
 . /usr/share/site-setup/lib/optparse
 
 add_arglim 0
-add_option config -c "" "Bash-style config, one parameter per line, = delimeter"
+add_option config -c "" "Bash-style config, one parameter per line, '=' delimeter"
 add_option domain -d None "Site main domain"
 add_option domain_test -t None "Site test domain"
 add_option user -u "" "Site user"
@@ -68,13 +69,7 @@ nginxfile="$nginxfile"
 nginxfileen="$nginxfileen"
 apachefile="$apachefile"
 apachefileen="$apachefileen"
-skeldir="$skeldir"
 configdir="$configdir"
-
-exit_command() {
-	rm -rf "$skeldir"
-	bell
-}
 
 
 
@@ -174,7 +169,7 @@ site_setup_database() {
 				is_verbose && echo "not backup old database"
 			else
 				is_verbose && echo "backup and drop database $DB..."
-				dbdump "$DB" > /dev/null 2>&1
+				dbdump "$DB"
 			fi
 			is_verbose && echo "DROP DATABASE $DB;" | mysql
 			#echo "CREATE DATABASE $DB;" | mysql
@@ -220,8 +215,6 @@ site_setup_script() {
 	DEBUG="$DEBUG"
 	VERBOSE="$VERBOSE"
 
-	skeldir="$skeldir"
-
 	if [ "$SCRIPT" != "" ]; then
 		is_verbose && echo start setup script
 		if [ "$SCRIPT" = "drupal" ]; then
@@ -234,23 +227,11 @@ site_setup_script() {
 		fi
 		SCRIPT=$(which "$SCRIPT")
 
-		# файлы, недоступные скрипту установки копируем в папку сайта
-		mkdir -p "$skeldir/sites/all/modules"
-		cp -r /usr/local/drupal/config/ "$skeldir"
-		cp -r /usr/local/drupal/patches/ "$skeldir"
-		cp -r /usr/local/drupal/libraries/ "$skeldir/sites/all"
-		cp -r /usr/local/drupal/features/ "$skeldir/sites/all/modules/features_viasite"
-		cp -r /usr/local/drupal/modules/ "$skeldir/sites/all/modules"
-		cp -r /usr/local/drupal/themes/ "$skeldir/sites/all"
-
-		echo "chown -R $USER:$USER $sitedir"
-		chown -R "$USER":"$USER" "$sitedir"
-
 		command="$SCRIPT $DOMAIN --sitedir $sitedir --user $USER --db_pass $DB_PASS --db $DB --logfile $logfile --drupal_profile $DRUPAL_PROFILE"
 		if [ "$DEBUG" = True ]; then command="$command --debug"; fi
 		if [ "$VERBOSE" = True ]; then command="$command --verbose"; fi
-		is_verbose && echo su -c \"$command\" "$USER"
-		su -c "$command" "$USER"
+		is_verbose && echo "$command"
+		$command
 
 	else
 		is_verbose && echo "no script defined"
@@ -311,7 +292,7 @@ main() {
 	fi
 
 	parseargs $@
-	variables_init "$@"
+	variables_init
 
 	if [ -z "$DB" ] && [ "$ENGINE" != None ]; then
 		echo "db not set"
@@ -334,15 +315,11 @@ main() {
 
 	logfile=$(mktemp -t site-setup-log-XXXX)
 	trap 'rm "$logfile"' EXIT
-	trap 'exit_command' EXIT
 
 	################### steps
 
 	echo -e "${color1}# 1. system user${NC}"
 	site_setup_user
-
-	# тут юзер точно создан
-	chown "$USER":"$USER" "$logfile"
 
 	echo -e "\n${color1}# 2. engine${NC}"
 	command_args=""
@@ -369,6 +346,8 @@ main() {
 
 	echo -e "\n${color1}# 7. setup script${NC}"
 	site_setup_script
+
+	chown -R "$USER":"$USER" "$sitedir"
 
 	################### end of steps
 

@@ -16,7 +16,7 @@
 	[ -f /home/example/www/example.com/sites/default/settings.php ]
 }
 
-@test "site-setup: config" {
+@test "site-setup: --config drupal_default" {
 	run site-setup --user example --domain example.com --db example --config configs/drupal_default --rewrite
 	echo >&2 "$output"
 	[ $status -eq 0 ]

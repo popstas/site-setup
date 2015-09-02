@@ -1,6 +1,8 @@
 #!/bin/bash
 
 . /etc/site-setup.conf
+BATS_TEST=${BATS_TEST:-""}
+BATS_TEST_ROOT=${BATS_TEST_ROOT:-""}
 if [ -n "$BATS_TEST" ]; then
 	. "$BATS_TEST_ROOT/site-setup.conf.example"
 fi

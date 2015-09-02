@@ -116,7 +116,10 @@ site-setup-domain --domain example.com
 Бесопаснее и быстрее всего это делать в докере, в подготовленном контейнере:
 ```
 cd site-setup
-docker run --rm -v $PWD:/usr/local/src/site-setup popstas/squeeze bash ./docker-tests.sh
+docker run --rm \
+ -v $PWD:/usr/local/src/site-setup \
+ -w /usr/local/src/site-setup \
+ popstas/squeeze bash ./docker-tests.sh
 ```
 
 Без docker можно запускать run-tests.sh, тогда действия должны выполняться под root и могут испортить вам рабочую систему.
