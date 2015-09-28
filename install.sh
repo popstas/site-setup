@@ -74,7 +74,7 @@ if [ -w "$BIN_PATH" ]; then
 fi
 
 if [ ! -e "$CONFIG_PATH" ]; then
-	cp "$PROGRAM_NAME.conf.example" "$CONFIG_PATH"
+	cp "$SOURCE_DIR/$PROGRAM_NAME.conf.example" "$CONFIG_PATH"
 else
 	echo "$CONFIG_PATH exists, don't rewrite it."
 fi
