@@ -124,3 +124,8 @@ docker run --rm \
 
 Без docker можно запускать run-tests.sh, тогда действия должны выполняться под root и могут испортить вам рабочую систему.
 `docker-tests.sh` можно запускать и вне docker, он устанавливает server-scripts и site-setup, предполагает, что исходники лежат в /usr/local/src/site-setup
+
+
+
+## TODO:
+- Конструкции типа is_verbose && echo 'verbose output' не работают при set -e, программа падает, если запущена без --verbose
