@@ -186,6 +186,7 @@ site_setup_database() {
 
 	if [ "$DB_SOURCE" != "" ]; then
 		# TODO: копируем базу
+		is_verbose && echo "copy mysql from $DB_SOURCE to $DB"
 		mysqldump "$DB_SOURCE" | mysql "$DB"
 	fi
 }
@@ -329,6 +330,7 @@ main() {
 	if [ "$REWRITE" = True ]; then command_args="$command_args --rewrite"; fi
 	if [ "$DEBUG" = True ]; then command_args="$command_args --debug"; fi
 	if [ "$VERBOSE" = True ]; then command_args="$command_args --verbose"; fi
+	if [ -n "$DB" ]; then command_args="$command_args --db $DB"; fi
 	if [ -n "$DB_SOURCE" ]; then command_args="$command_args --db_source $DB_SOURCE"; fi
 	if [ -n "$DB_PASS" ]; then command_args="$command_args --db_pass $DB_PASS"; fi
 	site-setup-engine --engine "$ENGINE" --user "$USER" --domain "$DOMAIN" $command_args
