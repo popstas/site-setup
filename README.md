@@ -6,6 +6,7 @@ Scripts for setup drupal site on virtual hosting.
 
 # Installation
 ```
+cd /usr/local/src
 git clone https://github.com/popstas/site-setup.git
 cd site-setup
 ./install.sh

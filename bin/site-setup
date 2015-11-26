@@ -349,6 +349,9 @@ main() {
 	echo -e "\n${color1}# 6. domain${NC}"
 	site-setup-domain --domain "$DOMAIN"
 
+	# before setup script sitedir must be owned by site user
+	chown -R "$USER":"$USER" "$sitedir"
+
 	echo -e "\n${color1}# 7. setup script${NC}"
 	site_setup_script
 
