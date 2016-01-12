@@ -1,4 +1,4 @@
-# site-setup v1.2.2
+# site-setup
 Scripts for setup drupal site on virtual hosting.
 
 ## Requirements
