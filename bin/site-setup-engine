@@ -159,6 +159,7 @@ site_setup_engine() {
 
 	if [ "$ENGINE" = "drupal" ]; then
 		mkdir -p "$homedir/drush-backups"
+		chown -R "$USER":"$USER" "$homedir/drush-backups"
 	fi
 
 	if [ $(echo "$sitedir" | grep -c "$test_directory") = 1 ]; then
